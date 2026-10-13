@@ -1,0 +1,24 @@
+.route-map {height:min(52vh,460px);min-height:260px;border-radius:10px;margin:16px 0;background:#dce3e8;color:#142338;}
+.route-map .leaflet-control-attribution {font-size:10px;}
+.route-source {display:grid;gap:8px;font-weight:700;}
+.route-source select {width:100%;max-width:100%;}
+.route-summary {display:flex;flex-wrap:wrap;gap:12px 24px;margin:16px 0;}
+.route-summary span {display:grid;gap:3px;font-size:12px;}
+.route-summary strong {font-size:19px;color:#fbad78;}
+.route-tools {display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
+.route-import {border:1px solid #596474;border-radius:10px;padding:14px;margin:20px 0;font-size:13px;}
+.route-import summary {cursor:pointer;font-weight:700;}
+.route-import p {line-height:1.65;margin:12px 0;}
+.route-import label,.route-import input {display:block;width:100%;margin:12px 0;}
+.route-import a {color:#ffae7d;text-decoration:underline;}
+.route-preview-note {border-left:3px solid #f6a367;padding:8px 12px;background:#45392b;font-size:12px;line-height:1.6;}
+.route-empty {padding:16px 0;line-height:1.65;}
+#route-content [hidden] {display:none;}
+.mobile-tracking {margin:0 0 20px;padding:16px;border:1px solid #5a6475;border-radius:12px;background:#212a36;color:#dce5ef;}
+.mobile-tracking p {margin:8px 0;font-size:12px;line-height:1.6;}
+.mobile-tracking h2 {margin:0;font-size:17px;}
+.mobile-server-url {overflow-wrap:anywhere;}
+.mobile-tracking .btn {margin:6px 8px 0 0;}
+.mobile-setup {max-width:440px;margin:8vh auto;padding:26px;color:#e4edf7;}
+.mobile-setup input {display:block;width:100%;padding:12px;margin:12px 0;color:#182231;background:#fff;border-radius:8px;}
+.mobile-setup button {margin-top:16px;}

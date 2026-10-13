@@ -1,0 +1,72 @@
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFile} from 'node:fs/promises';
+const code=await readFile(new URL('../assets/geo.js',import.meta.url),'utf8');
+function env() {
+  let success,error;const timers=new Map(),cleared=[];
+  const context=vm.createContext({Date,Number,Error,JSON,setTimeout:fn=>{timers.set(1,fn);return 1;},clearTimeout:id=>timers.delete(id)});
+  vm.runInContext(code,context);
+  return {geo:vm.runInContext('DriverManGeo',context),timers,cleared,gps:{watchPosition:(s,e,opts)=>{success=s;error=e;assert.equal(opts.enableHighAccuracy,true);assert.equal(opts.maximumAge,0);return 9;},clearWatch:id=>cleared.push(id)},fix:(accuracy=10,timestamp=Date.now())=>success({coords:{latitude:-4.325,longitude:15.322,accuracy},timestamp}),error:code=>error({code})};
+}
+let e=env();let request=e.geo.currentPosition({geolocation:e.gps});e.fix(12000);e.fix(12);let point=await request;
+assert.equal(point.latitude,-4.325);assert.equal(point.longitude,15.322);assert.deepEqual(e.cleared,[9]);assert.equal(e.timers.size,0);
+assert.equal(e.geo.mapUrl(point),'https://www.openstreetmap.org/?mlat=-4.325&mlon=15.322#map=17/-4.325/15.322');
+e=env();request=e.geo.currentPosition({geolocation:e.gps});e.fix(93);e.fix(95);e.timers.get(1)();assert.equal((await request).accuracy,93);assert.deepEqual(e.cleared,[9]);
+e=env();request=e.geo.currentPosition({geolocation:e.gps});e.fix(5,Date.now()-60000);e.timers.get(1)();await assert.rejects(request,/Aucune position récente/);
+e=env();request=e.geo.currentPosition({geolocation:e.gps});e.fix(0);e.timers.get(1)();await assert.rejects(request,/Aucune position récente/);
+e=env();request=e.geo.currentPosition({geolocation:e.gps});e.fix(35);e.fix(70);e.timers.get(1)();assert.equal((await request).accuracy,35);
+e=env();request=e.geo.currentPosition({geolocation:e.gps});e.error(1);await assert.rejects(request,/Autorisation refusée/);
+e=env();const controller=new AbortController();request=e.geo.currentPosition({geolocation:e.gps,signal:controller.signal});controller.abort();await assert.rejects(request,/annulé/);assert.equal(e.timers.size,0);assert.deepEqual(e.cleared,[9]);
+const geo=env().geo;
+// Test the live form, including immediate fill and keeping an approximate fix.
+const fuelCode=await readFile(new URL('../assets/fuel-ui.js',import.meta.url),'utf8');
+function fuelEnv() {
+  const gps=env(), modalEvents=new Map();
+  const nodes={'#fuel-location-status':{textContent:''},'#fuel-location-preview':{hidden:true,removeAttribute(name){delete this[name];}},'[type="submit"]':{disabled:false}};
+  const form={isConnected:true,elements:{latitude:{value:'1'},longitude:{value:'2'},accuracy:{value:'12'}},querySelector:id=>nodes[id]};
+  const button={textContent:'Utiliser ma position actuelle',closest:()=>form};
+  const modal={open:true,addEventListener:(name,fn)=>modalEvents.set(name,fn),removeEventListener:name=>modalEvents.delete(name)};
+  const context=vm.createContext({document:{addEventListener(){}},DriverManGeo:gps.geo,window:{isSecureContext:true},navigator:{geolocation:gps.gps},AbortController,modal,button,number:String,setInterval:()=>1,clearInterval(){}});
+  vm.runInContext(fuelCode,context);
+  return {gps,nodes,form,button,modal,modalEvents,context,start:()=>vm.runInContext('locateRefueling(button)',context)};
+}
+let ui=fuelEnv();request=ui.start();ui.gps.fix(93);
+assert.equal(ui.form.elements.latitude.value,'-4.325000');assert.equal(ui.form.elements.longitude.value,'15.322000');assert.equal(ui.form.elements.accuracy.value,93);
+assert.match(ui.nodes['#fuel-location-status'].textContent,/approximative.*93 m/);
+assert.equal(ui.button.textContent,'Conserver cette position');assert.equal(ui.nodes['[type="submit"]'].disabled,true);
+ui.gps.fix(95);assert.equal(ui.form.elements.accuracy.value,93);
+ui.gps.timers.get(1)();await request;
+assert.equal(ui.form.elements.accuracy.value,93);assert.equal(ui.nodes['[type="submit"]'].disabled,false);assert.equal(ui.form.elements.latitude.readOnly,false);
+assert.match(ui.nodes['#fuel-location-status'].textContent,/automatiquement/);
+assert.deepEqual(ui.gps.cleared,[9]);
+ui.gps.fix(8);assert.equal(ui.form.elements.accuracy.value,93); // Late callbacks cannot change the saved point.
+ui=fuelEnv();request=ui.start();ui.gps.fix(93);ui.gps.fix(12);await request;
+assert.equal(ui.form.elements.accuracy.value,12);assert.match(ui.nodes['#fuel-location-status'].textContent,/Position relevée/);
+ui=fuelEnv();request=ui.start();ui.gps.fix(95);await ui.start();await request;
+assert.equal(ui.form.elements.accuracy.value,95);assert.match(ui.nodes['#fuel-location-status'].textContent,/Relevé arrêté.*conservées/);
+assert.equal(ui.nodes['[type="submit"]'].disabled,false);
+ui=fuelEnv();request=ui.start();ui.gps.error(1);await request;
+assert.equal(ui.form.elements.latitude.value,'1');assert.equal(ui.form.elements.accuracy.value,'12');assert.match(ui.nodes['#fuel-location-status'].textContent,/Autorisation refusée/);
+assert.equal(ui.nodes['[type="submit"]'].disabled,false);
+ui=fuelEnv();request=ui.start();ui.gps.fix(5,Date.now()-60000);ui.gps.timers.get(1)();await request;
+assert.equal(ui.form.elements.latitude.value,'1');assert.match(ui.nodes['#fuel-location-status'].textContent,/Aucune position récente/);
+ui=fuelEnv();request=ui.start();ui.modal.open=false;ui.modalEvents.get('close')();await request;
+ui.gps.fix(12);assert.equal(ui.form.elements.latitude.value,'1');assert.deepEqual(ui.gps.cleared,[9]);
+ui=fuelEnv();vm.runInContext('window.isSecureContext=false',ui.context);await ui.start();
+assert.match(ui.nodes['#fuel-location-status'].textContent,/HTTPS/);assert.equal(ui.gps.timers.size,0);
+assert.equal(geo.geoJsonPoint(JSON.stringify({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'Point',coordinates:[15.322,-4.325,300]}}]})).latitude,-4.325);
+assert.equal(geo.geoJsonPoint('{"type":"Point","coordinates":[0,0]}').longitude,0);
+assert.throws(()=>geo.geoJsonPoint('{"type":"Point","coordinates":[510000,9500000]}'),/invalides/);
+assert.throws(()=>geo.geoJsonPoint('{"type":"Point","coordinates":[15,-4],"crs":{"properties":{"name":"EPSG:32733"}}}'),/WGS84/);
+assert.throws(()=>geo.geoJsonPoint('{"type":"FeatureCollection","features":[]}'),/un seul point/);
+assert.throws(()=>geo.geoJsonPoint('{"type":"LineString","coordinates":[[15,-4],[15.1,-4.1]]}'),/uniquement le point/);
+const context=vm.createContext({document:{addEventListener(){}},DriverManGeo:geo});
+vm.runInContext(await readFile(new URL('../assets/route-files.js',import.meta.url),'utf8'),context);
+vm.runInContext(await readFile(new URL('../assets/tracking.js',import.meta.url),'utf8'),context);
+const segments=vm.runInContext('DriverManTracking.segments',context);
+const base={latitude:-4.325,longitude:15.322,recorded_at:0,segment_id:'a'};
+assert.equal(segments([base,{...base,longitude:15.323,recorded_at:10000}]).length,1);
+assert.equal(segments([base,{...base,recorded_at:180000}]).length,2);
+assert.equal(segments([base,{...base,longitude:18,recorded_at:10000}]).length,2);
+assert.equal(segments([base,{...base,segment_id:'b',recorded_at:10000}]).length,2);
+console.log('GPS : précision, fraîcheur, refus, annulation, remplissage automatique et position approximative, GeoJSON WGS84 et interruptions de carte validés.');

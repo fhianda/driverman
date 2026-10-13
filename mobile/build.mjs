@@ -1,0 +1,12 @@
+import {readFile,writeFile,mkdir,cp} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {existsSync} from 'node:fs';
+import {build} from 'esbuild';
+await mkdir(new URL('www/',import.meta.url),{recursive:true});
+await cp(new URL('../assets/',import.meta.url),new URL('www/assets/',import.meta.url),{recursive:true});
+let html=await readFile(new URL('../index.php',import.meta.url),'utf8');
+html=html.replace(/^<\?php[\s\S]*?\?>\s*/, '').replace('<head>','<head>\n  <meta http-equiv="Content-Security-Policy" content="default-src \'self\'; img-src \'self\' data: https://tile.openstreetmap.org; style-src \'self\' \'unsafe-inline\'; script-src \'self\'; connect-src \'self\'; font-src \'self\'; base-uri \'self\'; form-action \'self\'">\n  <meta name="referrer" content="strict-origin-when-cross-origin">\n  <script src="mobile-bridge.js" defer></script>');
+html=html.replace(/<link rel="manifest"[^>]*>/,'');
+await writeFile(new URL('www/index.html',import.meta.url),html);
+await build({entryPoints:[fileURLToPath(new URL('src/bridge.js',import.meta.url))],bundle:true,format:'iife',target:'es2020',define:{__DRIVERMAN_PUSH_CONFIGURED__:String(existsSync(new URL('android/app/google-services.json',import.meta.url)))},outfile:fileURLToPath(new URL('www/mobile-bridge.js',import.meta.url))});
+console.log('Interface DriverMan et pont natif compilés.');

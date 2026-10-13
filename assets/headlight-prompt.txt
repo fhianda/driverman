@@ -1,0 +1,5 @@
+Asset: headlight-color.png
+Created with the built-in ImageGen tool, then copied into this project.
+Source: exec-b62ec71d-6a46-409f-acce-4bcada6f7c0e.png
+
+Use case: lighting-weather. Edit target: the supplied automotive headlight photograph. Keep the same SUV, precise headlight design, camera angle, close crop, proportions and realistic detail. Change only the color treatment and lighting to rich natural COLOR photography: deep metallic midnight BLUE bodywork, realistic silver chrome, subtle amber warm sunset reflections on the headlight lens and upper hood, cool blue environmental reflections in the glossy paint. Refined premium automotive editorial mood, clearly visible blue and warm amber colors, absolutely not black-and-white, no desaturation. Preserve authentic glass optics, lamp off. No text, no logos, no watermarks. This will sit next to a full-color TELESOL driver photo with a navy and orange GPS backdrop.

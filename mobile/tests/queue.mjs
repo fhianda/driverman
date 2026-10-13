@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import {PositionQueue} from '../src/queue.js';
+let stored=null,sends=[],fail=false,clock=100000;
+const options={read:async()=>stored,write:async points=>{stored=structuredClone(points);},send:async(id,points)=>{if(fail)throw Error('offline');sends.push(points);return{accepted:points.map(p=>p.sample_id),discarded:[]};},uuid:()=>crypto.randomUUID(),now:()=>clock,intervalMs:0};
+const queue=new PositionQueue(options);await queue.load();
+const fix={latitude:-4.325,longitude:15.322,accuracy:8,time:clock};
+assert.equal(await queue.add({...fix,accuracy:5000},1,'a'),false);
+assert.equal(await queue.add({...fix,time:0},1,'a'),false);
+assert.equal(await queue.add({...fix,simulated:true},1,'a'),false);
+assert.equal(await queue.add(fix,1,'a'),true);assert.equal(stored.points.length,1);
+fail=true;await assert.rejects(queue.flush(),/offline/);assert.equal(queue.points.length,1);
+const restored=new PositionQueue(options);await restored.load();assert.equal(restored.points[0].sample_id,queue.points[0].sample_id);
+fail=false;await restored.flush();assert.equal(stored.points.length,0);
+clock++;
+await Promise.all([restored.add({...fix,time:clock},1,'a'),restored.add({...fix,time:clock+1},1,'a')]);
+assert.equal(stored.points.length,2);assert.equal(await restored.add({...fix,time:clock},1,'a'),false);
+await Promise.all([restored.flush(),restored.flush()]);assert.equal(sends.length,2);assert.equal(stored.points.length,0);
+stored=null;
+const broken=new PositionQueue({...options,write:async()=>{throw Error('disk');}});await broken.load();await assert.rejects(broken.add({...fix,time:clock},1,'a'),/disk/);assert.equal(broken.points.length,0);
+const limited=new PositionQueue({...options,limit:1});await limited.load();await limited.add({...fix,time:clock},1,'a');await assert.rejects(limited.add({...fix,time:clock+1},1,'a'),/plein/);assert.equal(limited.points.length,1);
+let ended=0;const closed=new PositionQueue({...options,send:async(id,points)=>({accepted:[],discarded:points.map(p=>p.sample_id),ended:true})});await closed.load();await closed.flush(()=>{ended++;});assert.equal(ended,1);assert.equal(closed.points.length,0);
+// Un ajout survenant pendant un envoi ne doit pas être perdu lors de l’accusé de réception.
+stored=null;
+let release;const concurrent=new PositionQueue({...options,send:async(id,points)=>{await new Promise(resolve=>{release=resolve;});return{accepted:points.map(p=>p.sample_id)};}});await concurrent.load();await concurrent.add({...fix,time:clock},1,'a');
+const syncing=concurrent.flush();await new Promise(resolve=>setTimeout(resolve,0));await concurrent.add({...fix,time:++clock},1,'a');release();await new Promise(resolve=>setTimeout(resolve,0));assert.equal(concurrent.points.length,1);release();await syncing;assert.equal(concurrent.points.length,0);
+console.log('File GPS : persistance, hors réseau, reprises, concurrence, saturation et accusés de réception validés.');

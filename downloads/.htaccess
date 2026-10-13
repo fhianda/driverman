@@ -1,0 +1,11 @@
+Options -Indexes
+AddType application/vnd.android.package-archive .apk
+<IfModule mod_headers.c>
+  <FilesMatch "\.apk$">
+    Header set Content-Disposition "attachment"
+    Header set X-Content-Type-Options "nosniff"
+  </FilesMatch>
+  <Files "android.json">
+    Header set Cache-Control "no-cache"
+  </Files>
+</IfModule>

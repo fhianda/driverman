@@ -1,0 +1,28 @@
+{
+  "name": "driverman-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "sync": "npm run build && cap sync",
+    "check": "node --check src/bridge.js && node --check src/queue.js",
+    "test": "node tests/queue.mjs && node tests/sampling.mjs && node tests/lifecycle.mjs && node tests/push.mjs"
+  },
+  "dependencies": {
+    "@aparajita/capacitor-secure-storage": "7.1.6",
+    "@capacitor-community/background-geolocation": "1.2.26",
+    "@capacitor/android": "7.6.9",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "7.6.9",
+    "@capacitor/filesystem": "^7.1.9",
+    "@capacitor/ios": "7.6.9",
+    "@capacitor/local-notifications": "^7.0.0",
+    "@capacitor/push-notifications": "7.0.7",
+    "@capacitor/share": "^7.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.6.9",
+    "esbuild": "^0.25.0"
+  }
+}

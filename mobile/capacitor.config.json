@@ -1,0 +1,8 @@
+{
+  "appId":"net.telesol.driverman",
+  "appName":"DriverMan",
+  "webDir":"www",
+  "appendUserAgent":"DriverMan/1.3 (net.telesol.driverman)",
+  "android":{"useLegacyBridge":true,"allowMixedContent":false},
+  "plugins":{"CapacitorHttp":{"enabled":false},"PushNotifications":{"presentationOptions":["alert"]}}
+}

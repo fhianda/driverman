@@ -1,0 +1,18 @@
+Options -Indexes
+DirectoryIndex index.php
+AddType application/manifest+json .webmanifest
+<IfModule mod_headers.c>
+  <FilesMatch "^(sw\.js|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Preserve mobile bearer authentication when Apache does not forward it to PHP.
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  RewriteRule ^(?:node_modules|vendor|scripts|\.git)(?:/|$) - [F,L]
+</IfModule>
+<FilesMatch "^(README\.md|\.env|\.gitignore|composer\.(?:json|lock)|google-services\.json|push\.json)$">
+  Require all denied
+</FilesMatch>

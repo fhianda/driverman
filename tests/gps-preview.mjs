@@ -1,0 +1,31 @@
+// Serveur de vérification isolé. Fermer avec Ctrl+C une fois la revue terminée.
+import {spawn} from 'node:child_process';
+import {mkdtemp,readdir} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+const data=await mkdtemp(path.join(tmpdir(),'driverman-gps-preview-'));
+const versions=(await readdir('C:/wamp64/bin/php')).filter(v=>v.startsWith('php8.')).sort().reverse();
+const socket=net.createServer();await new Promise(resolve=>socket.listen(0,'127.0.0.1',resolve));const port=socket.address().port;await new Promise(resolve=>socket.close(resolve));
+const server=spawn(`C:/wamp64/bin/php/${versions[0]}/php.exe`,['-S',`127.0.0.1:${port}`,'-t',process.cwd()],{env:{...process.env,DRIVERMAN_DATA_DIR:data},windowsHide:true,stdio:'ignore'});
+process.on('SIGINT',()=>{server.kill();process.exit();});process.on('exit',()=>server.kill());
+const base=`http://127.0.0.1:${port}/`;
+let cookie='',csrf='';
+async function call(action,body) {
+  const response=await fetch(`${base}api.php?action=${action}`,{method:body?'POST':'GET',headers:{Cookie:cookie,'X-CSRF-Token':csrf,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+  const set=response.headers.getSetCookie();if(set.length) cookie=set[set.length-1].split(';')[0];
+  const result=await response.json();if(result.csrf)csrf=result.csrf;if(!response.ok)throw Error(result.error);return result;
+}
+for(let attempt=0;attempt<50;attempt++){try{await call('status');break;}catch{await new Promise(resolve=>setTimeout(resolve,100));}}
+await call('setup',{name:'Vérification locale',email:'qa@example.invalid',password:'Local-Preview-Only-2026'});
+await call('bootstrap');
+await call('save-driver',{id:0,name:'Chauffeur de test',phone:'000',license:'QA-001',license_expiry:'2035-01-01',status:'available'});
+await call('save-vehicle',{id:0,plate:'QA GPS 001',make:'Toyota',model:'Hilux',type:'Pick-up',fuel:'Diesel',mileage:1000,status:'available'});
+const local=offset=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Africa/Lagos',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(Date.now()+offset*60000)).replace(' ','T');
+await call('depart',{driver_id:1,vehicle_id:1,destination:'Trajet fictif de vérification',purpose:'Mission de service',start_at:local(-20),expected_return:'',start_km:1000,notes:'Données synthétiques de test'});
+await call('create-user',{role:'driver',driver_id:1,email:'qa-driver@example.invalid',password:'Local-Preview-Only-2026'});
+await call('login',{email:'qa-driver@example.invalid',password:'Local-Preview-Only-2026'});await call('bootstrap');
+await call('save-positions',{movement_id:1,points:Array.from({length:8},(_,i)=>({sample_id:crypto.randomUUID(),segment_id:'11111111-1111-4111-8111-111111111111',recorded_at:Date.now()-600000+i*10000,latitude:-4.325+i*.0003,longitude:15.322+i*.0005,accuracy:8}))});
+await call('return',{id:1,end_at:local(0),end_km:1005});
+console.log(`Serveur de vérification : ${base}`);
+await new Promise(()=>{});

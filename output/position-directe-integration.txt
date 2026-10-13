@@ -1,0 +1,248 @@
+OK 01 · Premier démarrage sans compte préconfiguré
+OK 02 · Données protégées sans connexion
+OK 03 · Écritures protégées par CSRF
+OK 04 · Refus d’un mot de passe trop court
+OK 05 · Création du compte administrateur
+OK 06 · Espace réel initialement vide
+OK 07 · Création initiale limitée à un seul compte
+OK 08 · Adresse mobile HTTP refusée
+OK 09 · Adresse mobile avec identifiants refusée
+OK 10 · Adresse mobile configurable côté administrateur
+OK 11 · Ajout d’un chauffeur avec avatar
+OK 12 · Ajout d’un véhicule avec photo
+OK 13 · Les fiches exposent les URL des photos sans charger les images
+OK 14 · Photo servie après conversion en JPEG
+OK 15 · Photos privées sans connexion
+OK 16 · Envoi de photo interdit sans connexion
+OK 17 · Envoi de photo protégé par CSRF
+OK 18 · Modification sans fichier conserve la photo
+OK 19 · Faux fichier image refusé
+OK 20 · SVG actif refusé
+OK 21 · Photo de plus de 2 Mo refusée
+OK 22 · Envoi refusé préserve la photo existante
+OK 23 · Remplacement de photo
+OK 24 · URL renouvelée et nouvelle image servie
+OK 25 · Suppression de photo
+OK 26 · Retour au visuel par défaut après suppression
+OK 27 · Type personnalisé et photo enregistrés ensemble
+OK 28 · Type personnalisé conservé
+OK 29 · Type vide refusé
+OK 30 · Type trop long refusé
+OK 31 · Conflit de fiche avec photo rejeté atomiquement
+OK 32 · Immatriculation unique
+OK 33 · Permis unique
+OK 34 · Validation du kilométrage
+OK 35 · Validation des dates
+OK 36 · Permis expiré bloqué au départ
+OK 37 · Retour prévu après le départ
+OK 38 · Retour prévu renseigné : date invalide refusée
+OK 39 · Départ avec kilométrage incohérent bloqué
+OK 40 · Enregistrement du départ
+OK 41 · Double affectation interdite
+OK 42 · Maintenance bloquée pendant un trajet
+OK 43 · Chauffeur actif non désactivable
+OK 44 · Suppression du chauffeur en mission refusée
+OK 45 · Suppression du véhicule en mission refusée
+OK 46 · Disponibilités synchronisées
+OK 47 · Kilométrage de retour contrôlé
+OK 48 · Chronologie du retour contrôlée
+OK 49 · Enregistrement du retour
+OK 50 · Double retour refusé
+OK 51 · Compteur et disponibilités actualisés
+OK 52 · Retour arrière du compteur interdit
+OK 53 · Trajet antidaté chevauchant un retour interdit
+OK 54 · Export CSV avec prévention des formules
+OK 55 · Démonstration sans identifiants
+OK 56 · Données fictives présentes et séparées
+OK 57 · La démonstration ne peut pas lire les photos réelles
+OK 58 · Changement de mot de passe interdit en démonstration
+OK 59 · Les essais ne modifient pas le parc réel
+OK 60 · Aperçu chauffeur dans la démonstration
+OK 61 · Aperçu chauffeur soumis aux mêmes restrictions
+OK 62 · Aperçu chauffeur sans privilèges administrateur
+OK 63 · Retour à la vue administrateur de démonstration
+OK 64 · Impossible de changer son rôle réel via la démonstration
+OK 65 · Déconnexion
+OK 66 · Session révoquée à la déconnexion
+OK 67 · Identifiants incorrects refusés
+OK 68 · Reconnexion au compte créé
+OK 69 · Historique conservé après reconnexion
+OK 70 · Photos conservées après reconnexion
+OK 71 · Données partagées entre sessions authentifiées
+OK 72 · L’administrateur peut créer un autre administrateur
+OK 73 · Création d’un compte chauffeur lié à sa fiche
+OK 74 · Adresse e-mail de compte unique
+OK 75 · Un seul compte par chauffeur
+OK 76 · Compte chauffeur sans fiche interdit
+OK 77 · Départ accepté sans champ de retour prévu
+OK 78 · Départ accepté avec retour prévu vide
+OK 79 · Aucun horaire prévu inventé
+OK 80 · Connexion du chauffeur
+OK 81 · Le rôle ne peut pas être falsifié à la connexion
+OK 82 · Le chauffeur ne reçoit que sa propre fiche
+OK 83 · Les missions des autres chauffeurs sont confidentielles
+OK 84 · Aucun accès à la liste des comptes pour un chauffeur
+OK 85 · Réglage du serveur mobile réservé à l’administrateur
+OK 86 · Le chauffeur peut consulter tous les véhicules du parc
+OK 87 · La liste des véhicules ne divulgue pas les missions des autres chauffeurs
+OK 88 · Le chauffeur peut voir son avatar et la photo de son véhicule
+OK 89 · Le chauffeur peut voir la photo d’un véhicule affecté à un autre chauffeur
+OK 90 · Les photos des autres chauffeurs restent privées
+OK 91 · Un chauffeur ne peut pas remplacer une photo
+OK 92 · Ajout de véhicule réservé à l’administrateur
+OK 93 · Modification de véhicule réservée à l’administrateur
+OK 94 · Ajout de chauffeur réservé à l’administrateur
+OK 95 · Création d’un compte admin interdite au chauffeur
+OK 96 · Création d’une course au nom d’un autre chauffeur interdite
+OK 97 · Retour d’un autre chauffeur interdit
+OK 98 · Connexion mobile chauffeur sans session navigateur
+OK 99 · Le jeton mobile authentifie le chauffeur
+OK 100 · La connexion mobile n’ouvre pas de session cookie
+OK 101 · Application mobile réservée aux chauffeurs
+OK 102 · Positions GPS protégées sans connexion
+OK 103 · Envoi GPS web protégé par CSRF
+OK 104 · Envoi GPS mobile autorisé pour sa course
+OK 105 · Répétition réseau sans doublon GPS
+OK 106 · Ordre latitude longitude préservé sur le serveur
+OK 107 · Lecture d’une autre trajectoire interdite
+OK 108 · Écriture d’une autre trajectoire interdite
+OK 109 · Relevés trop imprécis refusés
+OK 110 · Latitude GPS invalide refusée
+OK 111 · Points GPS hors course écartés
+OK 112 · Administrateur sans collecte du GPS d’autrui
+OK 113 · Import GPS interdit sans connexion
+OK 114 · Import GPS protégé par CSRF
+OK 115 · Aperçu d’une autre course interdit
+OK 116 · Import dans une autre course interdit
+OK 117 · Aperçu GPX avec segments et heures UTC
+OK 118 · Aucune heure ni précision inventée
+OK 119 · Aperçu sans écriture
+OK 120 · Import du tracé pour sa course
+OK 121 · Import réessayé sans doublon
+OK 122 · Imports et GPS du téléphone conservés séparément
+OK 123 · Administrateur autorisé à importer un KML
+OK 124 · Ordre KML longitude latitude correctement interprété
+OK 125 · Import GeoJSON multisegment
+OK 126 · KML gx:Track conserve ses horaires
+OK 127 · Fichier XML mal formé refusé
+OK 128 · XML avec entité externe refusé
+OK 129 · Position WGS84 invalide refusé
+OK 130 · Tracé hors période refusé
+OK 131 · Fuseau horaire absent refusé
+OK 132 · Date GPS impossible refusé
+OK 133 · Fichier sans trajectoire refusé
+OK 134 · GeoJSON en mètres UTM refusé
+OK 135 · Polygone KML refusé
+OK 136 · Fichier surdimensionné refusé
+OK 137 · Limite du nombre de positions refusé
+OK 138 · Export limité aux trajets personnels
+OK 139 · Date du retour réel obligatoire même sans prévision
+OK 140 · Date du retour réel vide refusée
+OK 141 · Un retour incomplet laisse la mission ouverte
+OK 142 · Le chauffeur peut confirmer son propre retour
+OK 143 · Le retour réel est conservé sans modifier la prévision
+OK 144 · Positions hors réseau synchronisables après le retour
+OK 145 · Déconnexion mobile révoque le jeton
+OK 146 · Connexion du nouvel administrateur
+OK 147 · Le nouvel administrateur dispose de la vue complète
+OK 148 · Le nouvel administrateur peut ajouter un véhicule
+OK 149 · Le nouvel administrateur peut créer un autre compte admin
+OK 150 · Mot de passe actuel obligatoire
+OK 151 · Nouveau mot de passe trop court refusé
+OK 152 · Changement du mot de passe personnel
+OK 153 · Changement de mot de passe révoque les jetons mobiles
+OK 154 · Ancien mot de passe révoqué
+OK 155 · Connexion avec le nouveau mot de passe
+OK 156 · Les identifiants des autres comptes restent inchangés
+OK 157 · La migration ajoute la suppression aux anciennes fiches
+OK 158 · Suppression interdite sans connexion
+OK 159 · Suppression protégée par CSRF
+OK 160 · Suppression interdite au chauffeur
+OK 161 · Suppression par GET refusée
+OK 162 · Identifiant absent refusé
+OK 163 · Fiche inexistante refusée
+OK 164 · Ravitaillement interdit sans connexion
+OK 165 · Ravitaillement protégé par CSRF
+OK 166 · Ravitaillement du véhicule en mission avec un autre chauffeur interdit
+OK 167 · Litres nuls refusés
+OK 168 · Prix négatif refusé
+OK 169 · Précision supérieure à trois décimales refusée
+OK 170 · Devise inconnue refusée
+OK 171 · Coordonnées incomplètes refusées
+OK 172 · Latitude invalide refusée
+OK 173 · Précision GPS négative refusée
+OK 174 · Précision GPS nulle refusée
+OK 175 · Précision GPS non numérique refusée
+OK 176 · Précision GPS hors limites refusée
+OK 177 · Ravitaillement futur refusé
+OK 178 · Compteur inférieur au compteur initial refusé
+OK 179 · Ravitaillement USD avec position approximative enregistré
+OK 180 · Double enregistrement refusé
+OK 181 · Ravitaillement partiel en CDF sans GPS
+OK 182 · Plein final enregistré
+OK 183 · Saisie passée cohérente acceptée
+OK 184 · Compteur antidaté incohérent refusé
+OK 185 · Litres et prix conservés avec leur précision
+OK 186 · Coordonnées nulles et zéro distinguées, précision de 93,5 m conservée
+OK 187 · Saisie passée ne diminue pas le compteur
+OK 188 · Départ antidaté incompatible avec un ravitaillement refusé
+OK 189 · Achats et positions enregistrés par les autres comptes non exposés au chauffeur
+OK 190 · Ravitaillement possible pendant une mission
+OK 191 · Retour antérieur au ravitaillement refusé
+OK 192 · Retour inférieur au ravitaillement refusé
+OK 193 · Retour après ravitaillement accepté
+OK 194 · Litres interdits pour un véhicule électrique
+OK 195 · Chauffeur sans historique supprimable
+OK 196 · Véhicule sans historique supprimable
+OK 197 · Chauffeur avec historique supprimable
+OK 198 · Sessions du chauffeur supprimé révoquées
+OK 199 · Connexion du chauffeur supprimé refusée
+OK 200 · Véhicule avec historique supprimable
+OK 201 · Véhicule avec ravitaillements supprimable
+OK 202 · Fiches supprimées retirées des listes
+OK 203 · Compte du chauffeur supprimé retiré des accès
+OK 204 · Historique des mouvements conservé
+OK 205 · Historique carburant conservé après suppression
+OK 206 · Photos des fiches supprimées inaccessibles
+OK 207 · Double suppression refusée
+OK 208 · Fiche supprimée non modifiable
+OK 209 · Chauffeur supprimé non affectable
+OK 210 · Véhicule supprimé non affectable
+OK 211 · Accès non recréable pour un chauffeur supprimé
+OK 212 · Ravitaillement interdit sur un véhicule supprimé
+OK 213 · Export conserve les anciens trajets
+OK 214 · Suppressions persistantes dans une autre session
+OK 215 · Un chauffeur sans mission peut consulter tout le parc
+OK 216 · La liste chauffeur exclut les véhicules supprimés
+OK 217 · Un chauffeur sans mission peut consulter les photos du parc
+OK 218 · Les photos des véhicules supprimés restent inaccessibles au chauffeur
+OK 219 · Un chauffeur sans mission peut choisir un véhicule disponible
+OK 220 · Les véhicules en maintenance sont exclus du choix chauffeur
+OK 221 · Le choix véhicule ne divulgue aucune affectation
+OK 222 · Le chauffeur peut enregistrer un achat avant une première course
+OK 223 · L’achat est lié au compte connecté malgré un auteur falsifié
+OK 224 · Un chauffeur ne voit pas les achats des autres sur le même véhicule
+OK 225 · Création d’une course personnelle sans identifiant chauffeur
+OK 226 · La course est automatiquement attribuée au chauffeur connecté
+OK 227 · Le véhicule personnel en mission reste disponible pour le carburant
+OK 228 · Une deuxième course simultanée du chauffeur est refusée
+OK 229 · Un véhicule déjà en mission ne peut être réservé une deuxième fois
+OK 230 · Le chauffeur ne peut créer une course pour un autre même avec un rôle falsifié
+OK 231 · Un autre chauffeur peut réserver un véhicule encore disponible
+OK 232 · Un véhicule pris entre deux chargements disparaît du choix chauffeur
+OK 233 · Le serveur refuse le carburant sur un véhicule pris par un autre
+OK 234 · Le serveur refuse le carburant sur un véhicule en maintenance
+OK 235 · Le carburant chauffeur reste protégé par CSRF
+OK 236 · Le chauffeur peut acheter du carburant pendant sa course
+OK 237 · Un achat chauffeur en double reste refusé
+OK 238 · Le retour chauffeur ne peut précéder son achat
+OK 239 · Le retour chauffeur ne peut abaisser le compteur après son achat
+OK 240 · Le chauffeur termine sa propre course après achat
+OK 241 · Les courses et achats chauffeur sont visibles par l’administrateur
+OK 242 · Le compteur du véhicule suit le parcours chauffeur
+OK 243 · Une nouvelle course peut démarrer après le retour
+OK 244 · Un chauffeur indisponible ne peut créer de course
+OK 245 · Un permis expiré empêche toujours le départ chauffeur
+OK 246 · Courses et achats personnels persistent après reconnexion
+
+246 vérifications réussies. Base temporaire isolée du parc Wamp.

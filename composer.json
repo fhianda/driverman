@@ -1,0 +1,11 @@
+{
+  "require": {
+    "minishlink/web-push": "^10.0"
+  },
+  "config": {
+    "platform": {
+      "php": "8.2.0"
+    }
+  },
+  "description": "Notifications Web Push DriverMan"
+}

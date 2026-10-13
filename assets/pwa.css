@@ -1,0 +1,22 @@
+.pwa-sidebar-button {width:100%;text-align:left;margin-top:8px;}
+.pwa-sidebar-button:disabled {opacity:1;color:#9ad8b3;cursor:default;}
+.entry-sidebar .pwa-sidebar-button {padding:14px 0;margin-top:24px;color:#f4e5db;font-size:12px;}
+.entry-sidebar .pwa-sidebar-button:disabled {color:#9ad8b3;}
+.android-sidebar-link {color:#ffb68e;}
+.android-sidebar-link span {display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.android-sidebar-link small {font-size:9px;letter-spacing:.7px;border:1px solid #82533a;border-radius:4px;padding:1px 5px;color:#ffb68e;}
+.entry-sidebar .android-sidebar-link {margin-top:0;padding-top:6px;}
+.pwa-dialog {position:fixed;inset:0;width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - 32px);margin:auto;padding:36px;border:1px solid #515a69;border-radius:22px;background:#1b212c;color:#f4e5db;overflow-y:auto;box-shadow:0 28px 90px #0008;}
+.pwa-dialog::backdrop {background:#090d16b8;backdrop-filter:blur(5px);}
+.pwa-dialog .pwa-close {position:absolute;right:16px;top:10px;color:#bdc8d8;font-size:28px;line-height:1.5;padding:0 8px;cursor:pointer;}
+.pwa-app-icon {border-radius:18px;margin-bottom:18px;}
+.pwa-dialog .pwa-eyebrow {color:#ffad7d;font-size:10px;letter-spacing:2px;margin:0 0 10px;}
+.pwa-dialog h2 {font-size:27px;line-height:1.25;font-weight:700;margin:0 0 16px;}
+.pwa-dialog p {font-size:13px;line-height:1.8;color:#c0cbdc;margin:0 0 14px;}
+.pwa-dialog p.pwa-connection {font-size:11px;color:#9eafc7;}
+.pwa-dialog .pwa-instructions {border:1px solid #555a61;border-radius:9px;padding:12px;background:#111722;font-size:12px;}
+.pwa-dialog #pwa-status {color:#b8dfc5;font-size:12px;}
+.pwa-dialog-actions {display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;margin-top:24px;}
+.pwa-dialog .btn.secondary {background:#283342;border-color:#647086;color:#edf2fa;}
+.pwa-dialog .btn.secondary:hover {background:#354255;}
+@media(max-width:500px){.pwa-dialog {padding:28px 22px;}.pwa-dialog h2 {font-size:24px;}.pwa-dialog-actions .btn {flex:1;}}

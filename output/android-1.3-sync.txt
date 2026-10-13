@@ -1,0 +1,41 @@
+
+> driverman-mobile@1.0.0 sync
+> npm run build && cap sync
+
+
+> driverman-mobile@1.0.0 build
+> node build.mjs
+
+Interface DriverMan et pont natif compilés.
+√ Copying web assets from www to android\app\src\main\assets\public in 36.88ms
+√ Creating capacitor.config.json in android\app\src\main\assets in 1.88ms
+√ copy android in 54.48ms
+√ Updating Android plugins in 1.65ms
+[info] Found 7 Capacitor plugins for android:
+       @aparajita/capacitor-secure-storage@7.1.6
+       @capacitor-community/background-geolocation@1.2.26
+       @capacitor/app@7.1.2
+       @capacitor/filesystem@7.1.9
+       @capacitor/local-notifications@7.0.7
+       @capacitor/push-notifications@7.0.7
+       @capacitor/share@7.0.4
+√ update android in 100.56ms
+√ Copying web assets from www to ios\App\App\public in 41.89ms
+√ Creating capacitor.config.json in ios\App\App in 682.60μs
+√ copy ios in 96.90ms
+√ Updating iOS plugins in 1.30ms
+[warn] Skipping pod install because CocoaPods is not installed
+[warn] Unable to find "xcodebuild". Skipping xcodebuild clean step...
+√ Updating iOS native dependencies with pod install in 26.58ms
+[info] Found 7 Capacitor plugins for ios:
+       @aparajita/capacitor-secure-storage@7.1.6
+       @capacitor-community/background-geolocation@1.2.26
+       @capacitor/app@7.1.2
+       @capacitor/filesystem@7.1.9
+       @capacitor/local-notifications@7.0.7
+       @capacitor/push-notifications@7.0.7
+       @capacitor/share@7.0.4
+√ update ios in 53.56ms
+√ copy web in 6.41ms
+√ update web in 8.67ms
+[info] Sync finished in 0.865s

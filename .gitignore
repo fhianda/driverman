@@ -1,0 +1,8 @@
+*.sqlite*
+.env
+node_modules/
+tests/.artifacts/
+vendor/
+**/google-services.json
+**/push.json
+**/*service-account*.json

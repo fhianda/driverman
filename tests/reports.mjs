@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import path from 'node:path';
+const require=createRequire(import.meta.url);
+const metrics=require('../assets/report-metrics.js'),exports=require('../assets/report-export.js'),fixture=require('./report-fixture.cjs');
+const {jsPDF}=require('jspdf'),{autoTable}=require('jspdf-autotable'),ExcelJS=require('exceljs');
+const filters={type:'all',from:'2026-01',to:'2026-03',vehicleId:'all'};
+const report=metrics.summarize(fixture,filters);
+assert.equal(report.totals.courses,3);assert.equal(report.totals.completed,2);assert.equal(report.totals.active,1);assert.equal(report.totals.distance,140);
+assert.deepEqual(report.months.map(v=>v.courses),[1,2,0]);assert.equal(report.months[0].distance,100);assert.equal(report.totals.USD,39);assert.equal(report.totals.CDF,100000);assert.equal(report.totals.liters,70.001);
+assert.equal(report.totals.consumed,50.001);assert.equal(report.months[0].consumed,null);assert.ok(Math.abs(report.months[1].rate-10.0002)<1e-10);assert.equal(report.months[2].rate,null);
+const retired=metrics.summarize(fixture,{...filters,vehicleId:'2'});assert.equal(retired.vehicleLabel,'RETIRÉ 002');assert.equal(retired.totals.courses,1);assert.equal(retired.totals.consumed,null);
+for(const invalid of [{from:''},{from:'2026-13'},{from:'2026-04',to:'2026-01'},{to:'2026-11'},{from:'1999-12'},{vehicleId:'999'},{type:'unknown'}])assert.throws(()=>metrics.summarize(fixture,{...filters,...invalid}));
+const empty=metrics.summarize({...fixture,movements:[],refuelings:[]},filters);assert.equal(empty.totals.courses,0);assert.equal(empty.months.length,3);assert.equal(empty.totals.rate,null);
+assert.equal(metrics.tables(report).length,7);
+assert.ok(metrics.tables(metrics.summarize(fixture,{...filters,type:'fuel'})).every(t=>t.name.includes('carburant')||t.name.includes('Carburant')));
+assert.ok(metrics.tables(metrics.summarize(fixture,{...filters,type:'courses'})).every(t=>t.name.includes('courses')||t.name.includes('Courses')));
+const buffer=await exports.excel(report,ExcelJS),book=new ExcelJS.Workbook();await book.xlsx.load(buffer);
+assert.equal(book.worksheets.length,8);assert.equal(book.getWorksheet('Courses par mois').getCell('B7').value,1);
+assert.equal(book.getWorksheet('Détail courses').getCell('F7').value,'=SUM(1,2)');assert.equal(book.getWorksheet('Détail courses').getCell('F7').type,ExcelJS.ValueType.String);
+assert.equal(book.getWorksheet('Détail courses').getCell('B7').value.toISOString(),'2026-01-31T23:50:00.000Z');
+assert.equal(book.getWorksheet('Carburant par mois').getCell('D7').value,15);assert.equal(book.getWorksheet('Carburant par mois').getCell('F7').value,null);
+const fonts={fontRegular:(await readFile(new URL('../assets/manrope-regular.ttf',import.meta.url))).toString('base64'),fontBold:(await readFile(new URL('../assets/manrope-bold.ttf',import.meta.url))).toString('base64')};
+const pdf=exports.pdf(report,{jsPDF,autoTable,...fonts});assert.ok(Buffer.from(pdf).subarray(0,5).equals(Buffer.from('%PDF-')));
+// Forcer plusieurs pages avec des libellés longs et contrôler les dates et totaux dans les exports.
+const longReport={...report,trips:Array.from({length:90},(_,i)=>({...report.trips[0],id:i+1,destination:'Aéroport de N’djili — déplacement administratif et livraison de matériel à la direction provinciale'}))};
+const longPdf=exports.pdf(longReport,{jsPDF,autoTable,...fonts});
+const output=process.env.REPORT_QA_DIR;
+if(output){await mkdir(output,{recursive:true});await writeFile(path.join(output,'rapport-test.xlsx'),buffer);await writeFile(path.join(output,'rapport-test.pdf'),Buffer.from(pdf));await writeFile(path.join(output,'rapport-multipage.pdf'),Buffer.from(longPdf));}
+console.log('Rapports : calculs mensuels, limites de période, devises, véhicules retirés, consommation, sécurité Excel, dates et exports PDF/Excel vérifiés.');

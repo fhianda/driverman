@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DriverMan</string>
+    <string name="title_activity_main">DriverMan</string>
+    <string name="package_name">net.telesol.driverman</string>
+    <string name="custom_url_scheme">net.telesol.driverman</string>
+    <string name="capacitor_background_geolocation_notification_channel_name">Suivi des courses DriverMan</string>
+    <string name="capacitor_background_geolocation_notification_color">#fa965f</string>
+    <string name="capacitor_background_geolocation_notification_icon">drawable/ic_tracking</string>
+</resources>

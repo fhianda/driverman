@@ -1,0 +1,42 @@
+@import "tailwindcss" source(none);
+@source "../index.php";
+@source "../assets/app.js";
+@source "../assets/fuel-ui.js";
+@plugin "daisyui" {
+  themes: false;
+  logs: false;
+}
+@plugin "daisyui/theme" {
+  name: "telesol";
+  default: true;
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #1d212b;
+  --color-base-200: #181b22;
+  --color-base-300: #303644;
+  --color-base-content: #e2e4ec;
+  --color-primary: #fa814b;
+  --color-primary-content: #171a21;
+  --color-secondary: #f26928;
+  --color-secondary-content: #ffffff;
+  --color-accent: #2a2f3d;
+  --color-accent-content: #fa814b;
+  --color-neutral: #12161d;
+  --color-neutral-content: #ffffff;
+  --color-info: #4776b5;
+  --color-info-content: #ffffff;
+  --color-success: #599680;
+  --color-success-content: #ffffff;
+  --color-warning: #f0a16a;
+  --color-warning-content: #493122;
+  --color-error: #b02f37;
+  --color-error-content: #ffffff;
+  --radius-selector: .5rem;
+  --radius-field: .5rem;
+  --radius-box: .875rem;
+  --size-selector: .25rem;
+  --size-field: .25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
