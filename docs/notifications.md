@@ -7,10 +7,11 @@ Les alertes commencent après activation des événements. Les 50 dernières son
 ## État de cette livraison
 
 - Écran web et Android, préférences, historique, événements transactionnels et file d’envoi implémentés et testés avec des données isolées.
-- Web Push standard préparé pour les navigateurs compatibles et la PWA iPhone ; clés créées dans le répertoire privé local.
-- APK 1.3 préparé avec Firebase Cloud Messaging et quatre canaux Android. **Firebase n’est pas encore configuré** : cet APK ne reçoit donc pas encore les alertes Android à distance. Le bouton explique cette indisponibilité.
+- Web Push standard configuré sur Hostinger pour les navigateurs compatibles et la PWA iPhone ; les clés VAPID restent dans le répertoire privé du serveur.
+- APK 1.8 (versionCode 9) compilé avec la configuration Firebase du projet `driverman-d5cbd` et quatre canaux Android. L’application doit être mise à jour, puis activée par chaque administrateur sur son appareil.
+- Le 14 octobre 2026, Hostinger a validé l’authentification du compte technique et une requête FCM HTTP v1 `validate_only`, sans envoi à un téléphone. Le worker a confirmé `web: true`, `android: true`, `firebase_validated: true` et une file sans erreur. Il s’exécute toutes les minutes.
 - Le fichier APK distribué ici est signé pour les essais, comme la version précédente. Prévoir une clé de signature de production conservée durablement avant une diffusion opérationnelle.
-- Aucun envoi sur un téléphone réel, en arrière-plan ou écran verrouillé, n’a été validé. Aucune publication sur le domaine public n’a été effectuée dans cette modification.
+- Aucun envoi sur un téléphone réel, en arrière-plan ou écran verrouillé, n’a encore été validé. La validation serveur ne remplace pas cet essai après installation et autorisation des notifications.
 
 ## Déployer le serveur Web Push
 
@@ -29,11 +30,9 @@ $env:OPENSSL_CONF='C:\wamp64\bin\php\php8.4.15\extras\ssl\openssl.cnf'
 
 ## Activer Android avec Firebase
 
-Le projet **DriverMan** (`driverman-d5cbd`) a été créé le 13 octobre 2026 dans le compte Google du propriétaire. Il est visible dans les listes Firebase et Google Cloud. Console : https://console.firebase.google.com/project/driverman-d5cbd/overview
+Le projet **DriverMan** (`driverman-d5cbd`, numéro `58103862399`) est actif. L’application Android `net.telesol.driverman` y est enregistrée avec l’identifiant `1:58103862399:android:f8fa4509ec353e8e2bdb4a`. Sa configuration `google-services.json` est intégrée à la compilation 1.8 et ignorée par Git. Console : https://console.firebase.google.com/project/driverman-d5cbd/overview
 
-L’API Firebase Management est activée et le compte de service Firebase Admin SDK a été créé automatiquement, sans clé. La finalisation Firebase reste bloquée dans la console sur « Preparing your project » ; l’ouverture du projet affiche une erreur d’accès à la liste des applications. Ne pas créer un deuxième projet : reprendre avec `driverman-d5cbd` lorsque l’accès fonctionne.
-
-L’enregistrement de l’application Android et la configuration du compte de service restent à terminer. L’APK 1.3 demeure sans configuration Firebase tant que `google-services.json` n’a pas été récupéré puis intégré à une nouvelle compilation.
+L’API FCM HTTP v1 est activée. Le compte `driverman-notifications@driverman-d5cbd.iam.gserviceaccount.com` possède le rôle `roles/firebasecloudmessaging.admin` pour l’envoi. La clé privée du compte technique est conservée hors du site public et n’est incluse ni dans l’APK ni dans GitHub. Les étapes suivantes servent à reproduire la configuration ou à renouveler la clé :
 
 1. Dans la [console du projet DriverMan](https://console.firebase.google.com/project/driverman-d5cbd/overview), terminer l’activation Firebase si nécessaire, puis ajouter une application Android avec l’identifiant **`net.telesol.driverman`**. Google Analytics n’est pas nécessaire pour ces alertes.
 2. Télécharger la configuration de l’application Android et placer `google-services.json` dans **`mobile/android/app/`**.
@@ -43,6 +42,20 @@ L’enregistrement de l’application Android et la configuration du compte de s
 6. Installer la nouvelle version, se connecter comme administrateur et activer cet appareil dans **Notifications**. Autoriser les notifications sur Android. Les quatre canaux peuvent aussi être réglés dans les paramètres système de DriverMan.
 
 Les messages FCM contiennent une notification visible : Android peut l’afficher lorsque la WebView est fermée, sans maintenir le GPS ni un service de surveillance actif pour l’administrateur. Les réglages système, le réseau, les restrictions du constructeur et un arrêt forcé peuvent empêcher la réception. Android 15 n’affiche pas les notifications d’un espace privé verrouillé.
+
+## Installation Hostinger actuelle
+
+L’application publique est dans `/home/u535341568/domains/trackkintrans.com/public_html/driverman`. Ses configurations privées `database.json` et `push.json` sont dans `/home/u535341568/driverman-data`, hors de la racine web.
+
+Le lanceur `scripts/hostinger-push-worker.php` est installé dans `/home/u535341568/domains/trackkintrans.com/driverman-private/hostinger-push-worker.php`, également hors de `public_html`. La tâche cron personnalisée, toutes les minutes (`* * * * *`), utilise :
+
+```sh
+/usr/bin/env DRIVERMAN_APP_DIR=/home/u535341568/domains/trackkintrans.com/public_html/driverman DRIVERMAN_DATA_DIR=/home/u535341568/driverman-data /usr/bin/php /home/u535341568/domains/trackkintrans.com/driverman-private/hostinger-push-worker.php
+```
+
+Le préfixe `/usr/bin/env` est nécessaire avec le lanceur Hostinger. Le script conserve les clés VAPID existantes, verrouille les exécutions concurrentes et traite les reprises même sans visite du site. Pour importer une clé renouvelée du même compte, déposer `driverman-notifications-service-account.json` à côté du lanceur privé : il vérifie le projet et le compte, l’intègre à `push.json` avec des droits 0600, puis supprime la copie de transfert. Le dossier du lanceur reçoit les droits 0700. Une validation FCM sans envoi est exécutée à chaque changement de clé.
+
+Le fichier privé `status.json` et la sortie cron ne contiennent que les capacités, la validation Firebase, les compteurs de la file et des codes d’erreur sans secrets. Le marqueur `.firebase-verified` contient uniquement une empreinte de la clé. Conserver une sauvegarde privée de `push.json` et de la clé du compte ; ne jamais les publier via le gestionnaire de fichiers ou Git.
 
 ## iPhone et navigateur
 

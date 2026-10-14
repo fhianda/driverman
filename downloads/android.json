@@ -1,8 +1,8 @@
 {
-  "version": "1.7",
-  "versionCode": 8,
-  "file": "DriverMan-Android-1.7.apk",
-  "bytes": 15752830,
-  "sha256": "01493801df68c0c33394f9fec69b61abd92dc00425bdbd1d230605dd4282c685",
+  "version": "1.8",
+  "versionCode": 9,
+  "file": "DriverMan-Android-1.8.apk",
+  "bytes": 15643126,
+  "sha256": "df81e62116afb822373075ba119d7464372e32a27b7ba477f53fae7f55f9a783",
   "channel": "test"
 }

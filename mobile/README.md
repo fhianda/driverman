@@ -2,13 +2,15 @@
 
 Application Capacitor Android et iPhone pour les chauffeurs et les administrateurs. Le serveur PHP et sa base MySQL/MariaDB restent ceux de DriverMan. Le compte connecté détermine automatiquement les accès : gestion complète du parc pour l’administrateur, missions personnelles et GPS pour le chauffeur. Le téléphone de l’administrateur ne collecte pas les trajets des chauffeurs.
 
+La version 1.8 intègre la configuration Firebase de DriverMan pour recevoir les alertes administrateur lorsque l’application est fermée normalement ou l’écran verrouillé. Chaque administrateur choisit les événements et active la réception sur son téléphone dans **Notifications**.
+
 La version 1.7 place le formulaire de connexion avant l’image sur téléphone, masque les rubriques avant connexion et retire le lien technique du serveur. Le bouton de connexion est contrasté et le champ actif reste visible à l’ouverture du clavier. Le démarrage présente une icône animée et le logo TELESOL, sans attente artificielle. Android 12 et les versions suivantes utilisent aussi une animation native ; les versions précédentes affichent une image native puis l’animation de chargement web.
 
 La version 1.6 affiche les rubriques directement sous l’en-tête sur téléphone après connexion, selon les droits du compte. La page web de téléchargement conserve uniquement le nom de l’application, la version, la taille et le bouton de téléchargement.
 
 La version 1.5 retire les encarts techniques de l’accueil. Le chauffeur retrouve l’activation et l’arrêt du GPS dans **Menu → Suivi du trajet**, sans compteur de points ni journal de synchronisation sur ses pages. La collecte automatique et l’envoi des positions sont conservés.
 
-Elle conserve la correction de la version 1.4 : l’espace des barres système et de l’encoche est réservé sur Android 15 et les versions suivantes. La version 1.7 complète les marges de Capacitor avec les insets du clavier dans `MainActivity`, sans les cumuler. Sur téléphone, le menu reste visible pendant le défilement et son bouton mesure 48 × 48 pixels CSS. Ne pas ajouter une seconde marge CSS fixe pour la barre système. Le livrable natif est l’[APK Android 1.7 de test](../downloads/DriverMan-Android-1.7.apk).
+Elle conserve la correction de la version 1.4 : l’espace des barres système et de l’encoche est réservé sur Android 15 et les versions suivantes. La version 1.7 complète les marges de Capacitor avec les insets du clavier dans `MainActivity`, sans les cumuler. Sur téléphone, le menu reste visible pendant le défilement et son bouton mesure 48 × 48 pixels CSS. Ne pas ajouter une seconde marge CSS fixe pour la barre système. Le livrable natif est l’[APK Android 1.8 de test](../downloads/DriverMan-Android-1.8.apk), versionCode 9, signé avec la même clé que la version 1.7 pour permettre la mise à jour.
 
 L’application comprend l’accès administrateur, les formulaires avec photos et le partage natif des rapports PDF et Excel. Elle conserve un point toutes les quinze secondes et le dernier point récent disponible au retour pour le chauffeur. Pour iPhone, la solution retenue est la PWA décrite ci-dessous. Les tests du suivi mobile sont simulés ; le GPS écran verrouillé doit encore être essayé sur un téléphone physique. Le projet natif iPhone est conservé pour une évolution future et n’a pas été compilé avec Xcode.
 
@@ -26,7 +28,7 @@ L’API mobile utilise des jetons individuels expirant après 30 jours, stockés
 
 ## Compiler Android
 
-Prérequis : Node.js 20 ou supérieur, JDK 21, Android SDK et accès aux dépôts Google/Maven. Depuis la racine du projet :
+Prérequis : Node.js 20 ou supérieur, JDK 21, Android SDK et accès aux dépôts Google/Maven. Pour conserver les notifications Android, récupérer la configuration de l’application `net.telesol.driverman` dans le projet Firebase `driverman-d5cbd` et placer `google-services.json` dans `mobile/android/app/` avant compilation. Ce fichier est ignoré par Git ; la clé privée du compte de service ne doit jamais être copiée dans le projet mobile. Depuis la racine du projet :
 
 ```powershell
 npm --prefix mobile ci
@@ -98,4 +100,6 @@ Les tests automatisés (`npm test` à la racine, `npm --prefix mobile test`) cou
 
 ## Alertes de l’administrateur
 
-L’APK 1.3 contient le menu Notifications et les canaux son/vibreur/silencieux. Le projet Firebase n’est pas encore créé : la réception Android à distance reste désactivée. Suivre [le guide de configuration](../docs/notifications.md), ajouter google-services.json avant compilation et installer une nouvelle version. La PWA iPhone utilise Web Push et ne nécessite pas de compte Apple Developer.
+Installer l’APK 1.8, se connecter comme administrateur, puis ouvrir **Notifications**. Choisir un mode pour **Départ d’une course** et/ou **Achat de carburant**, toucher **Enregistrer mes choix**, puis **Activer sur cet appareil** et autoriser les notifications Android. Les choix restent individuels ; une mise à jour n’abonne pas automatiquement tous les administrateurs. Les canaux son, vibration, son et vibration, et silencieux peuvent aussi être réglés dans les paramètres Android.
+
+Le [guide des notifications](../docs/notifications.md) décrit la configuration Firebase et le traitement automatique sur Hostinger. La PWA iPhone utilise Web Push et ne nécessite pas de compte Apple Developer. La réception réelle, application fermée et écran verrouillé, reste à vérifier sur les téléphones utilisés.

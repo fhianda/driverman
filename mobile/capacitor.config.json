@@ -2,7 +2,7 @@
   "appId":"net.telesol.driverman",
   "appName":"DriverMan",
   "webDir":"www",
-  "appendUserAgent":"DriverMan/1.7 (net.telesol.driverman)",
+  "appendUserAgent":"DriverMan/1.8 (net.telesol.driverman)",
   "backgroundColor":"#181b22",
   "android":{"useLegacyBridge":true,"allowMixedContent":false,"adjustMarginsForEdgeToEdge":"auto"},
   "plugins":{"CapacitorHttp":{"enabled":false},"PushNotifications":{"presentationOptions":["alert"]}}
