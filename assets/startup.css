@@ -1,0 +1,9 @@
+.startup{min-height:100svh;min-height:100dvh;gap:24px;background:#181b22;color:#eef0f6}
+.startup-icon{position:relative;width:112px;height:112px;display:grid;place-items:center}
+.startup-icon::before{content:'';position:absolute;inset:0;border:3px solid #fa955f22;border-top-color:#fa955f;border-right-color:#fa955f;border-radius:50%;animation:startup-turn 1s linear infinite}
+.startup-icon svg{width:68px;height:68px;animation:startup-breathe 1.6s ease-in-out infinite}
+.startup-name{font-size:25px;letter-spacing:-.8px}.startup-name span{color:#fa955f}
+.startup-brand{width:150px;height:auto;margin-top:22px}
+@keyframes startup-turn{to{transform:rotate(360deg)}}
+@keyframes startup-breathe{50%{transform:scale(.9);opacity:.8}}
+@media(prefers-reduced-motion:reduce){.startup-icon::before,.startup-icon svg{animation:none}}

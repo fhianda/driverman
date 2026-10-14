@@ -21,7 +21,12 @@
     </style>
 
 
-    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+    <style name="DriverMan.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#181b22</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/driverman_launch_animated</item>
+        <item name="windowSplashScreenAnimationDuration">1000</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+        <item name="android:windowBackground">@drawable/driverman_launch_background</item>
     </style>
+    <style name="AppTheme.NoActionBarLaunch" parent="DriverMan.Splash" />
 </resources>

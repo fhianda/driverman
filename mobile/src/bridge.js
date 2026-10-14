@@ -299,16 +299,11 @@ function openTrackingSettings() {
 }
 
 function loginRendered() {
-  const form=document.querySelector('#auth-form');
-  if(!form) return;
-  const row=document.createElement('p');row.className='field-hint';
-  row.innerHTML=`Serveur : ${escaped(settings.server)} <button type="button" class="text-button" data-mobile-server>Modifier</button>`;
-  form.append(row);
+  // L’adresse configurée reste conservée, sans lien technique sous la connexion.
 }
 
 document.addEventListener('click',async event=>{
   try {
-    if(event.target.closest('[data-mobile-server]')&&!settings.token) {await configure();await boot();}
     if(event.target.closest('[data-mobile-tracking]')) openTrackingSettings();
     if(event.target.closest('a[href="api.php?action=export"]')) {
       event.preventDefault();

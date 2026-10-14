@@ -1,0 +1,5 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><shape><solid android:color="#181b22" /></shape></item>
+    <item android:width="220dp" android:height="220dp" android:gravity="center" android:drawable="@drawable/driverman_launch_icon" />
+    <item android:width="200dp" android:height="80dp" android:gravity="bottom|center_horizontal" android:bottom="32dp" android:drawable="@drawable/telesol_splash_branding" />
+</layer-list>

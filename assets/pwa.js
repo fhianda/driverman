@@ -14,9 +14,9 @@ const DriverManPwa=(()=>{
   function buttonHtml(){return `<button type="button" class="nav-link pwa-sidebar-button" data-pwa-install ${installed?'disabled':''}><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">${installed?'<path d="m5 12 4 4L19 6"/>':'<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>'}</svg><span>${installed?'Installé':'Installer l’application'}</span></button>`;}
   function androidLinkHtml(){return `<a class="nav-link pwa-sidebar-button android-sidebar-link" data-android-download href="${new URL('android.php',base).href}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4M12 6v7m-3-3 3 3 3-3"/></svg><span>Application Android <small>APK</small></span></a>`;}
   function refresh(){
-    for(const container of document.querySelectorAll('.entry-sidebar,.sidebar-bottom')) {
+    for(const container of document.querySelectorAll('.entry-install,.sidebar-bottom')) {
       if(!container.querySelector('[data-pwa-install]')) {
-        const nav=container.querySelector('.entry-nav');if(nav)nav.insertAdjacentHTML('afterend',buttonHtml());else container.insertAdjacentHTML('afterbegin',buttonHtml());
+        container.insertAdjacentHTML('afterbegin',buttonHtml());
       }
       if(!container.querySelector('[data-android-download]')) container.querySelector('[data-pwa-install]').insertAdjacentHTML('afterend',androidLinkHtml());
     }

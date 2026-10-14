@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme.NoActionBarLaunch" parent="DriverMan.Splash">
+        <item name="android:windowSplashScreenBackground">#181b22</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/driverman_launch_animated</item>
+        <item name="android:windowSplashScreenAnimationDuration">1000</item>
+        <item name="android:windowSplashScreenBrandingImage">@drawable/telesol_splash_branding</item>
+    </style>
+</resources>

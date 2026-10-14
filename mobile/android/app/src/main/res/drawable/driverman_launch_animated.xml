@@ -1,0 +1,3 @@
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/driverman_launch_icon">
+    <target android:name="spinner" android:animation="@animator/driverman_launch_spin" />
+</animated-vector>

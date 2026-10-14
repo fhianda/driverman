@@ -28,6 +28,7 @@ ob_start(static function (string $html): string {
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="stylesheet" href="assets/components.css">
   <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/startup.css">
   <link rel="stylesheet" href="assets/entry.css">
   <link rel="stylesheet" href="assets/workspace.css">
   <link rel="stylesheet" href="assets/cards.css">
@@ -49,10 +50,11 @@ ob_start(static function (string $html): string {
   <script src="assets/report-ui.js" defer></script>
   <script src="assets/notifications.js" defer></script>
   <script src="assets/app.js" defer></script>
+  <script src="assets/login-focus.js" defer></script>
   <script src="assets/alpine-csp.min.js" defer></script>
 </head>
 <body>
-  <div id="app"><div class="boot"><span class="brand-symbol">d<span>↗</span></span><p>Votre espace prend la route…</p></div></div>
+  <div id="app"><div class="boot startup" role="status" aria-label="Chargement de DriverMan"><div class="startup-icon" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><path d="M38 14v36H27a13 13 0 1 1 11-20" stroke="white" stroke-width="6"/><path d="M43 16h9v9m-1-8L40 28" stroke="#fa955f" stroke-width="3"/></svg></div><strong class="startup-name">DriverMan<span>.</span></strong><img class="startup-brand" src="assets/telesol-logo-white.png" width="150" height="49" alt="TELESOL"><span class="sr-only">Chargement de l’application…</span></div></div>
   <dialog id="modal" aria-labelledby="modal-title"></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
   <noscript>Activez JavaScript dans votre navigateur pour utiliser DriverMan.</noscript>

@@ -4,12 +4,6 @@
 document.addEventListener('alpine:init', () => {
   Alpine.data('loginUi', () => ({
     passwordVisible: false,
-    destination: state.page,
-    chooseDestination(event) {
-      this.destination = event.currentTarget.dataset.destination;
-      state.page = this.destination;
-      document.querySelector('#auth-email')?.focus();
-    },
     togglePassword() { this.passwordVisible = !this.passwordVisible; },
     get passwordType() { return this.passwordVisible ? 'text' : 'password'; },
     get passwordLabel() { return this.passwordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'; },
@@ -141,17 +135,13 @@ function renderLogin() {
   app.innerHTML = `<main class="entry-page" x-data="loginUi">
     <div class="entry-frame">
       <aside class="entry-sidebar">
-        <a class="entry-brand" href="#overview" data-destination="overview" x-on:click="chooseDestination" aria-label="DriverMan TELESOL — Accueil">
+        <a class="entry-brand" href="./" aria-label="DriverMan TELESOL — Accueil">
           <img src="assets/telesol-logo-white.png" alt="TELESOL" width="123" height="42">
           <span>DriverMan<span class="entry-brand-dot">.</span></span>
         </a>
-        <nav class="entry-nav" aria-label="Votre espace après connexion">
-          ${[['overview','Tableau de bord'],['drivers','Chauffeurs'],['vehicles','Véhicules'],['movements','Mouvements'],['accounts','Administration']].map(([destination,label]) => `<a href="#${destination}" data-destination="${destination}" x-on:click="chooseDestination" x-bind:class="destination === '${destination}' ? 'is-active' : ''">${label}</a>`).join('')}
-        </nav>
         <span class="entry-copyright">© ${new Date().getFullYear()} TELESOL</span>
       </aside>
       <section class="entry-main" aria-label="Connexion à DriverMan">
-        <header class="entry-topline"><a href="https://telesol.net" target="_blank" rel="noopener noreferrer">TELESOL.NET ${icon('arrow')}</a></header>
         <div class="entry-stage">
           <div class="entry-gallery">
             <div class="entry-photo entry-photo-driver"><img src="assets/fleet-driver-gps.png" alt="Chauffeur en polo et képi TELESOL, clé levée, devant le parc automobile et une carte GPS au tracé orange" fetchpriority="high"></div>
@@ -161,13 +151,13 @@ function renderLogin() {
           <div class="entry-access"><h2>${setup ? 'Créer l’administrateur' : 'Connexion'}</h2>
         <form id="auth-form" method="post" data-mode="${setup ? 'setup' : 'login'}">
           ${setup ? `<label for="auth-name">Votre nom complet</label><div class="input-wrap">${icon('users')}<input class="input input-bordered" id="auth-name" name="name" placeholder="Prénom et nom" autocomplete="name" maxlength="100" required></div>` : ''}
-          <label for="auth-email">Adresse e-mail</label><div class="input-wrap">${icon('mail')}<input class="input input-bordered" id="auth-email" name="email" type="email" placeholder="vous@telesol.net" autocomplete="username" maxlength="150" required></div>
-          <label for="auth-password">Mot de passe</label><div class="input-wrap">${icon('lock')}<input class="input input-bordered" id="auth-password" name="password" type="password" x-bind:type="passwordType" placeholder="${setup ? '10 caractères minimum' : 'Saisissez votre mot de passe'}" autocomplete="${setup ? 'new-password' : 'current-password'}" minlength="${setup ? 10 : 1}" maxlength="72" required><button type="button" class="eye-button" x-on:click="togglePassword" x-bind:aria-label="passwordLabel" x-bind:aria-pressed="passwordVisible" aria-label="Afficher le mot de passe" aria-pressed="false">${icon('eye')}</button></div>
+          <label for="auth-email">Adresse e-mail</label><div class="input-wrap">${icon('mail')}<input class="input input-bordered" id="auth-email" name="email" type="email" inputmode="email" enterkeyhint="next" autocapitalize="none" spellcheck="false" placeholder="vous@telesol.net" autocomplete="username" maxlength="150" required></div>
+          <label for="auth-password">Mot de passe</label><div class="input-wrap">${icon('lock')}<input class="input input-bordered" id="auth-password" name="password" type="password" enterkeyhint="go" x-bind:type="passwordType" placeholder="${setup ? '10 caractères minimum' : 'Saisissez votre mot de passe'}" autocomplete="${setup ? 'new-password' : 'current-password'}" minlength="${setup ? 10 : 1}" maxlength="72" required><button type="button" class="eye-button" x-on:click="togglePassword" x-bind:aria-label="passwordLabel" x-bind:aria-pressed="passwordVisible" aria-label="Afficher le mot de passe" aria-pressed="false">${icon('eye')}</button></div>
           <p class="form-error" id="auth-error" role="alert"></p>
           <button class="btn btn-primary primary auth-submit" type="submit">${setup ? 'Créer mon espace' : 'Se connecter'} ${icon('arrow')}</button>
         </form>
+          <div class="entry-install"></div>
           </div>
-          <div class="entry-lines" aria-hidden="true"><span></span><span></span></div>
         </div>
       </section>
       </div>

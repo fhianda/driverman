@@ -6,8 +6,8 @@
   "scripts": {
     "publish:android": "node scripts/publish-android.mjs",
     "build": "tailwindcss -i ./src/theme.css -o ./assets/components.css --minify && node scripts/copy-vendor.mjs",
-    "check": "node --check assets/app.js && node --check assets/fuel-ui.js && node --check assets/fuel-metrics.js && node --check assets/report-metrics.js && node --check assets/report-export.js && node --check assets/report-ui.js && node --check assets/pwa.js && node --check sw.js && node --check assets/geo.js && node --check assets/tracking.js && node --check assets/route-files.js && npm --prefix mobile run check && node --check assets/notifications.js",
-    "test": "node tests/geolocation.mjs && node tests/route-files.mjs && node mobile/tests/queue.mjs && node mobile/tests/sampling.mjs && node mobile/tests/lifecycle.mjs && node tests/fuel-metrics.mjs && node tests/reports.mjs && node tests/pwa.mjs && node tests/integration.mjs && node tests/notifications.mjs && node tests/sw-push.mjs && node mobile/tests/push.mjs && npm run test:mysql",
+    "check": "node --check assets/app.js && node --check assets/login-focus.js && node --check assets/fuel-ui.js && node --check assets/fuel-metrics.js && node --check assets/report-metrics.js && node --check assets/report-export.js && node --check assets/report-ui.js && node --check assets/pwa.js && node --check sw.js && node --check assets/geo.js && node --check assets/tracking.js && node --check assets/route-files.js && npm --prefix mobile run check && node --check assets/notifications.js",
+    "test": "node tests/login-focus.mjs && node tests/geolocation.mjs && node tests/route-files.mjs && node mobile/tests/queue.mjs && node mobile/tests/sampling.mjs && node mobile/tests/lifecycle.mjs && node tests/fuel-metrics.mjs && node tests/reports.mjs && node tests/pwa.mjs && node tests/integration.mjs && node tests/notifications.mjs && node tests/sw-push.mjs && node mobile/tests/push.mjs && npm run test:mysql",
     "test:mysql": "node tests/mysql-tests.mjs"
   },
   "devDependencies": {

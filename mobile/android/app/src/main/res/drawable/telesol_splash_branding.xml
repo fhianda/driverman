@@ -1,0 +1,4 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="200dp" android:height="80dp"><shape><solid android:color="#00181b22" /></shape></item>
+    <item android:width="160dp" android:height="52dp" android:gravity="center" android:drawable="@drawable/telesol_brand" />
+</layer-list>
