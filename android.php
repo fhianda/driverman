@@ -37,31 +37,16 @@ $asset = static fn(string $file): string => 'assets/' . $file . '?v=' . substr(h
     <header><a class="brand" href="./" aria-label="Accueil DriverMan"><img src="assets/telesol-logo-white.png" width="108" alt="TELESOL"><span>DriverMan<span class="accent">.</span></span></a><a class="back-link" href="./">Retour à l’application web <span aria-hidden="true">↗</span></a></header>
     <main>
       <section class="download-card" aria-labelledby="download-title">
-        <div class="app-heading"><img class="app-icon" src="assets/pwa/icon-192.png" width="76" height="76" alt=""><div><p class="eyebrow">DRIVERMAN TELESOL</p><p class="platform">Application Android · APK</p></div></div>
-        <h1 id="download-title">Votre parc vous accompagne.</h1>
-        <p class="intro">Installez DriverMan sur votre téléphone Android et connectez-vous avec votre compte administrateur ou chauffeur.</p>
+        <img class="app-icon" src="assets/pwa/icon-192.png" width="76" height="76" alt="">
+        <h1 id="download-title">DriverMan pour Android</h1>
         <?php if ($release): ?>
-          <p class="release">Version <?= $escape($release['version']) ?><?= ($release['channel'] ?? '') === 'test' ? ' · Version de test' : '' ?> <span>·</span> <?= number_format($release['bytes'] / 1024 / 1024, 1, ',', ' ') ?> Mo</p>
+          <p class="release">Version <?= $escape($release['version']) ?> · <?= number_format($release['bytes'] / 1024 / 1024, 1, ',', ' ') ?> Mo</p>
           <a class="download-button" href="downloads/<?= $escape($release['file']) ?>" download="<?= $escape($release['file']) ?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>Télécharger l’APK Android</a>
-          <p class="hint">Ouvrez cette page sur le téléphone à installer. Le téléchargement ne lance pas l’installation automatiquement.</p>
         <?php else: ?>
-          <p class="unavailable" role="status">L’APK n’est pas encore disponible sur ce serveur. Contactez votre administrateur ou réessayez plus tard.</p>
+          <p class="unavailable" role="status">Téléchargement momentanément indisponible.</p>
         <?php endif; ?>
-        <div class="features"><p><strong>Administrateur</strong>Gérez le parc, les comptes, le carburant et les rapports.</p><p><strong>Chauffeur</strong>Retrouvez vos missions et activez le suivi GPS pendant vos courses.</p></div>
-        <p class="server-note">Serveur préconfiguré : <a href="https://driverman.trackkintrans.com/">driverman.trackkintrans.com</a>. La connexion nécessite que le serveur soit en ligne.</p>
-      </section>
-      <section class="installation" aria-labelledby="install-title">
-        <p class="eyebrow">PRISE EN MAIN</p><h2 id="install-title">Installer en quelques étapes</h2>
-        <ol>
-          <li><strong>Téléchargez et ouvrez le fichier</strong><p>Touchez le bouton de téléchargement, puis ouvrez le fichier APK dans les téléchargements de votre téléphone.</p></li>
-          <li><strong>Confirmez sur Android</strong><p>Si Android le demande, autorisez l’installation depuis le navigateur ou l’application qui ouvre ce fichier, puis touchez « Installer ».</p></li>
-          <li><strong>Connectez-vous à DriverMan</strong><p>Ouvrez l’application et utilisez vos identifiants habituels. Votre compte détermine automatiquement votre espace.</p></li>
-        </ol>
-        <div class="gps-note"><h3>Pour le suivi des courses</h3><p>Avec le compte chauffeur, ouvrez « Menu → Suivi du trajet », puis activez le suivi. Autorisez la position précise ainsi que les notifications. Le suivi est prévu pour continuer écran verrouillé.</p></div>
-        <p class="iphone-note"><strong>Vous utilisez un iPhone ?</strong> Ouvrez <a href="./">l’application web</a> dans Safari, puis choisissez « Partager → Sur l’écran d’accueil ». Le fichier APK est réservé à Android.</p>
       </section>
     </main>
-    <footer>DriverMan · Gestion du parc automobile TELESOL</footer>
   </div>
 </body>
 </html>

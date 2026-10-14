@@ -2,15 +2,17 @@
 
 Application Capacitor Android et iPhone pour les chauffeurs et les administrateurs. Le serveur PHP et sa base MySQL/MariaDB restent ceux de DriverMan. Le compte connecté détermine automatiquement les accès : gestion complète du parc pour l’administrateur, missions personnelles et GPS pour le chauffeur. Le téléphone de l’administrateur ne collecte pas les trajets des chauffeurs.
 
+La version 1.6 affiche les rubriques directement sous l’en-tête sur téléphone après connexion, selon les droits du compte. La page web de téléchargement conserve uniquement le nom de l’application, la version, la taille et le bouton de téléchargement.
+
 La version 1.5 retire les encarts techniques de l’accueil. Le chauffeur retrouve l’activation et l’arrêt du GPS dans **Menu → Suivi du trajet**, sans compteur de points ni journal de synchronisation sur ses pages. La collecte automatique et l’envoi des positions sont conservés.
 
-Elle conserve la correction de la version 1.4 : l’espace des barres système et de l’encoche est réservé sur Android 15 et les versions suivantes grâce à `android.adjustMarginsForEdgeToEdge: "auto"`. Sur téléphone, le menu reste visible pendant le défilement et son bouton mesure 48 × 48 pixels CSS. Ne pas ajouter une seconde marge CSS fixe pour la barre système : Capacitor ajuste déjà les limites de la WebView, y compris en paysage. Le livrable natif est l’[APK Android 1.5 de test](../downloads/DriverMan-Android-1.5.apk).
+Elle conserve la correction de la version 1.4 : l’espace des barres système et de l’encoche est réservé sur Android 15 et les versions suivantes grâce à `android.adjustMarginsForEdgeToEdge: "auto"`. Sur téléphone, le menu reste visible pendant le défilement et son bouton mesure 48 × 48 pixels CSS. Ne pas ajouter une seconde marge CSS fixe pour la barre système : Capacitor ajuste déjà les limites de la WebView, y compris en paysage. Le livrable natif est l’[APK Android 1.6 de test](../downloads/DriverMan-Android-1.6.apk).
 
 L’application comprend l’accès administrateur, les formulaires avec photos et le partage natif des rapports PDF et Excel. Elle conserve un point toutes les quinze secondes et le dernier point récent disponible au retour pour le chauffeur. Pour iPhone, la solution retenue est la PWA décrite ci-dessous. Les tests du suivi mobile sont simulés ; le GPS écran verrouillé doit encore être essayé sur un téléphone physique. Le projet natif iPhone est conservé pour une évolution future et n’a pas été compilé avec Xcode.
 
 Transférer cet APK sur le téléphone puis l’ouvrir pour installer ou mettre à jour DriverMan. Android peut demander d’autoriser l’installation depuis l’application utilisée pour ouvrir le fichier. Se connecter avec le compte administrateur ou chauffeur existant. L’adresse du serveur est préconfigurée ; les anciennes installations conservent leur adresse enregistrée.
 
-Le site propose aussi **Application Android · APK** sur la page de connexion et dans le menu connecté. La page `android.php` permet de télécharger l’APK et explique son installation. Après chaque compilation destinée au téléchargement, exécuter `npm run publish:android` à la racine et déployer le dossier `downloads/` avec le site. Le téléchargement de l’APK depuis le site ne déclenche pas son installation sans la confirmation de l’utilisateur sur Android.
+Le site propose aussi **Application Android · APK** sur la page de connexion et dans le menu connecté. La page `android.php` permet de télécharger l’APK. Après chaque compilation destinée au téléchargement, exécuter `npm run publish:android` à la racine et déployer le dossier `downloads/` avec le site. Le téléchargement de l’APK depuis le site ne déclenche pas son installation sans la confirmation de l’utilisateur sur Android.
 
 ## Configurer le serveur
 
