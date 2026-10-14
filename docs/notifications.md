@@ -14,7 +14,7 @@ Les alertes commencent après activation des événements. Les 50 dernières son
 
 ## Déployer le serveur Web Push
 
-1. Déployer le projet PHP, notamment `app/notifications.php`, `app/push.php`, `sw.js`, les nouveaux assets et `vendor/`, sur `https://driverman.trackkintrans.com/`. PHP **8.2 minimum**, extensions cURL, OpenSSL, mbstring et les extensions SQLite déjà nécessaires au projet. Installer les dépendances avec `composer install --no-dev --prefer-dist` si `vendor/` n’est pas transféré. Ne jamais désactiver la vérification TLS.
+1. Déployer le projet PHP, notamment `app/notifications.php`, `app/push.php`, `sw.js`, les nouveaux assets et `vendor/`, sur `https://driverman.trackkintrans.com/`. PHP **8.2 minimum**, extensions cURL, OpenSSL, mbstring et `pdo_mysql` pour la base MySQL du projet. Installer les dépendances avec `composer install --no-dev --prefer-dist` si `vendor/` n’est pas transféré. Ne jamais désactiver la vérification TLS.
 2. Utiliser le même `DRIVERMAN_DATA_DIR` privé que l’application. Le répertoire doit être hors de la racine web et accessible au processus PHP uniquement selon les droits nécessaires.
 3. Exécuter une seule fois `php scripts/push-worker.php --init`. Cela crée `push.json` avec les clés VAPID privées. Sauvegarder ce fichier ; changer les clés oblige à réactiver les abonnements. Pour conserver des abonnements existants, transférer le fichier privé correspondant plutôt que générer de nouvelles clés.
 4. Planifier toutes les minutes `php /chemin/driverman/scripts/push-worker.php` avec le même environnement et répertoire de données. Les événements tentent déjà un envoi après validation ; cette commande traite les reprises même sans visite du site. Le worker ne possède pas de route HTTP publique. Sur Windows, utiliser le Planificateur de tâches ; sur l’hébergement, une tâche cron PHP.
@@ -29,9 +29,13 @@ $env:OPENSSL_CONF='C:\wamp64\bin\php\php8.4.15\extras\ssl\openssl.cnf'
 
 ## Activer Android avec Firebase
 
-Cette étape nécessite un projet appartenant au propriétaire de DriverMan ; aucun compte externe n’a été créé automatiquement.
+Le projet **DriverMan** (`driverman-d5cbd`) a été créé le 13 octobre 2026 dans le compte Google du propriétaire. Il est visible dans les listes Firebase et Google Cloud. Console : https://console.firebase.google.com/project/driverman-d5cbd/overview
 
-1. Dans la [console Firebase](https://console.firebase.google.com/), créer un projet, puis ajouter une application Android avec l’identifiant **`net.telesol.driverman`**. Google Analytics n’est pas nécessaire pour ces alertes.
+L’API Firebase Management est activée et le compte de service Firebase Admin SDK a été créé automatiquement, sans clé. La finalisation Firebase reste bloquée dans la console sur « Preparing your project » ; l’ouverture du projet affiche une erreur d’accès à la liste des applications. Ne pas créer un deuxième projet : reprendre avec `driverman-d5cbd` lorsque l’accès fonctionne.
+
+L’enregistrement de l’application Android et la configuration du compte de service restent à terminer. L’APK 1.3 demeure sans configuration Firebase tant que `google-services.json` n’a pas été récupéré puis intégré à une nouvelle compilation.
+
+1. Dans la [console du projet DriverMan](https://console.firebase.google.com/project/driverman-d5cbd/overview), terminer l’activation Firebase si nécessaire, puis ajouter une application Android avec l’identifiant **`net.telesol.driverman`**. Google Analytics n’est pas nécessaire pour ces alertes.
 2. Télécharger la configuration de l’application Android et placer `google-services.json` dans **`mobile/android/app/`**.
 3. Activer l’API **Firebase Cloud Messaging API (HTTP v1)** du projet. Créer un compte de service autorisé à envoyer des messages FCM (rôle Firebase Cloud Messaging API Admin), télécharger sa clé JSON et la conserver dans un emplacement privé hors du site. Ne jamais copier cette clé dans l’APK, les assets ou le dossier de téléchargement.
 4. Sur le serveur, exécuter `php scripts/configure-firebase.php /chemin/prive/compte-de-service.json`. Le script conserve les clés VAPID et enregistre uniquement les champs Firebase nécessaires dans le fichier privé `push.json`.

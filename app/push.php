@@ -80,7 +80,7 @@ function drainPushJobs(PDO $db, int $limit=50, ?callable $transport=null): array
 {
     $stats=['sent'=>0,'failed'=>0,'cancelled'=>0];
     $now=time();$deadline=microtime(true)+25;
-    $db->prepare("DELETE FROM push_devices WHERE kind='android' AND binding LIKE 'native:%' AND NOT EXISTS (SELECT 1 FROM mobile_tokens t WHERE 'native:'||t.token_hash=push_devices.binding AND t.expires_at>?)")->execute([$now]);
+    $db->prepare("DELETE FROM push_devices WHERE kind='android' AND binding LIKE 'native:%' AND NOT EXISTS (SELECT 1 FROM mobile_tokens t WHERE CONCAT('native:',t.token_hash)=push_devices.binding AND t.expires_at>?)")->execute([$now]);
     $db->prepare('DELETE FROM notifications WHERE created_at<?')->execute([$now-90*86400]);
     for ($i=0;$i<$limit && microtime(true)<$deadline;$i++) {
         $job=transaction($db,function() use($db) {

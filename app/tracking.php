@@ -30,7 +30,7 @@ function trackingAction(PDO $db, string $action, array $input, bool $admin): nev
         $count = $db->prepare('SELECT COUNT(*) FROM movement_positions WHERE movement_id=?');
         $count->execute([$movementId]);
         $total = (int)$count->fetchColumn();
-        $save = $db->prepare('INSERT INTO movement_positions(movement_id,sample_id,segment_id,recorded_at,latitude,longitude,accuracy,created_by) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(movement_id,sample_id) DO NOTHING');
+        $save = $db->prepare('INSERT INTO movement_positions(movement_id,sample_id,segment_id,recorded_at,latitude,longitude,accuracy,created_by) VALUES(?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id');
         $accepted=[];$discarded=[];
         foreach ($points as $point) {
             if (!is_array($point)) throw new DomainException('Position incorrecte.');

@@ -20,16 +20,16 @@ if (!process.env.PHP_BIN && process.platform === 'win32') {
     if (versions.length) php = path.join(base, versions[0], 'php.exe');
   }
 }
-// Une installation antérieure doit recevoir la migration sans perdre ses fiches.
-const legacy = spawnSync(php,['-r',`$db=new PDO('sqlite:'.$argv[1]);$db->exec("CREATE TABLE drivers (id INTEGER PRIMARY KEY,name TEXT NOT NULL,phone TEXT NOT NULL,license TEXT NOT NULL UNIQUE,license_expiry TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'available'); CREATE TABLE vehicles (id INTEGER PRIMARY KEY,plate TEXT NOT NULL UNIQUE,make TEXT NOT NULL,model TEXT NOT NULL,type TEXT NOT NULL,fuel TEXT NOT NULL,mileage INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'available')");`,path.join(data,'driverman.sqlite')],{windowsHide:true});
-assert.equal(legacy.status,0,legacy.stderr?.toString());
+const testEnv={...process.env,DRIVERMAN_DATA_DIR:data};
+const init=spawnSync(php,['tests/mysql-fixture.php','init'],{cwd:root,env:testEnv,windowsHide:true});
+assert.equal(init.status,0,init.stdout.toString()+init.stderr.toString());
 const probe = net.createServer();
 await new Promise(resolve => probe.listen(0, '127.0.0.1', resolve));
 const port = probe.address().port;
 await new Promise(resolve => probe.close(resolve));
 const base = `http://127.0.0.1:${port}/api.php?action=`;
-const server = spawn(php, ['-S',`127.0.0.1:${port}`,'-t',root], {
-  cwd:root, env:{...process.env,DRIVERMAN_DATA_DIR:data}, windowsHide:true,
+const server = spawn(php, ['-d','error_log=php://stderr','-S',`127.0.0.1:${port}`,'-t',root], {
+  cwd:root, env:testEnv, windowsHide:true,
   stdio:['ignore','pipe','pipe'],
 });
 let logs = '';
@@ -129,8 +129,9 @@ try {
   test('Validation du kilométrage',(await client.call('save-vehicle',{...vehicle,plate:'TEST 002',mileage:-1})).status===422);
   test('Validation des dates',(await client.call('save-driver',{...driver,license:'TEST-002',license_expiry:'2026-02-31'})).status===422);
   await client.call('save-driver',{...driver,license:'TEST-EXP',license_expiry:'2020-01-01'});
+  const expiredDriver=(await client.call('bootstrap')).result.drivers.find(d=>d.license==='TEST-EXP').id;
   const trip = {driver_id:1,vehicle_id:1,destination:'=SUM(1,2)',purpose:'Mission de service',start_at:localTime(-5),expected_return:localTime(120),start_km:1000,notes:'Essai de sécurité CSV'};
-  test('Permis expiré bloqué au départ',(await client.call('depart',{...trip,driver_id:2})).status===422);
+  test('Permis expiré bloqué au départ',(await client.call('depart',{...trip,driver_id:expiredDriver})).status===422);
   test('Retour prévu après le départ',(await client.call('depart',{...trip,expected_return:localTime(-10)})).status===422);
   test('Retour prévu renseigné : date invalide refusée',(await client.call('depart',{...trip,expected_return:'2026-02-31T12:00'})).status===422);
   test('Départ avec kilométrage incohérent bloqué',(await client.call('depart',{...trip,start_km:999})).status===422);
@@ -192,7 +193,10 @@ try {
   test('Compte chauffeur sans fiche interdit',(await client.call('create-user',{...driverAccount,driver_id:999,email:'missing@example.invalid'})).status===422);
   await client.call('save-driver',{...driver,name:'Autre Chauffeur',license:'OTHER-001'});
   await client.call('save-vehicle',photoForm({...vehicle,plate:'OTHER 001'},secondPhotoFixture));
-  test('Départ accepté sans champ de retour prévu',(await client.call('depart',{...trip,driver_id:3,vehicle_id:2,destination:'Destination confidentielle autre chauffeur',start_at:localTime(-2),expected_return:undefined})).status===200);
+  const otherSnapshot=(await client.call('bootstrap')).result;
+  const initialOtherDriver=otherSnapshot.drivers.find(d=>d.license==='OTHER-001').id;
+  const initialOtherVehicle=otherSnapshot.vehicles.find(v=>v.plate==='OTHER 001').id;
+  test('Départ accepté sans champ de retour prévu',(await client.call('depart',{...trip,driver_id:initialOtherDriver,vehicle_id:initialOtherVehicle,destination:'Destination confidentielle autre chauffeur',start_at:localTime(-2),expected_return:undefined})).status===200);
   test('Départ accepté avec retour prévu vide',(await client.call('depart',{...trip,driver_id:1,vehicle_id:1,start_at:localTime(0),start_km:1050,destination:'Mission personnelle du chauffeur',expected_return:''})).status===200);
   r = await client.call('bootstrap');
   test('Aucun horaire prévu inventé',r.result.movements.filter(m=>m.id===2 || m.id===3).every(m=>m.expected_return==='' && m.end_at===null));
@@ -209,14 +213,14 @@ try {
   test('Le chauffeur peut consulter tous les véhicules du parc',r.result.vehicles.length===2 && r.result.vehicles.some(v=>v.plate==='TEST 001') && r.result.vehicles.some(v=>v.plate==='OTHER 001' && v.on_trip===1 && v.photo_url));
   test('La liste des véhicules ne divulgue pas les missions des autres chauffeurs',r.result.vehicles.every(v=>!('driver_id' in v) && !('destination' in v)) && !JSON.stringify(r.result).includes('Destination confidentielle autre chauffeur'));
   test('Le chauffeur peut voir son avatar et la photo de son véhicule',(await driverSession.call('photo&type=driver&id=1')).status===200 && (await driverSession.call('photo&type=vehicle&id=1')).status===200);
-  test('Le chauffeur peut voir la photo d’un véhicule affecté à un autre chauffeur',(await driverSession.call('photo&type=vehicle&id=2')).status===200);
-  test('Les photos des autres chauffeurs restent privées',(await driverSession.call('photo&type=driver&id=3')).status===403);
+  test('Le chauffeur peut voir la photo d’un véhicule affecté à un autre chauffeur',(await driverSession.call('photo&type=vehicle&id='+initialOtherVehicle)).status===200);
+  test('Les photos des autres chauffeurs restent privées',(await driverSession.call('photo&type=driver&id='+initialOtherDriver)).status===403);
   test('Un chauffeur ne peut pas remplacer une photo',(await driverSession.call('save-vehicle',photoForm({...vehicle,id:1,mileage:1050},secondPhotoFixture))).status===403);
   test('Ajout de véhicule réservé à l’administrateur',(await driverSession.call('save-vehicle',{...vehicle,plate:'FORBIDDEN'})).status===403);
   test('Modification de véhicule réservée à l’administrateur',(await driverSession.call('save-vehicle',{...vehicle,id:1,mileage:1050})).status===403);
   test('Ajout de chauffeur réservé à l’administrateur',(await driverSession.call('save-driver',{...driver,license:'FORBIDDEN'})).status===403);
   test('Création d’un compte admin interdite au chauffeur',(await driverSession.call('create-user',{...admin2,email:'forbidden@example.invalid'})).status===403);
-  test('Création d’une course au nom d’un autre chauffeur interdite',(await driverSession.call('depart',{...trip,driver_id:3})).status===403);
+  test('Création d’une course au nom d’un autre chauffeur interdite',(await driverSession.call('depart',{...trip,driver_id:initialOtherDriver})).status===403);
   test('Retour d’un autre chauffeur interdit',(await driverSession.call('return',{id:2,end_at:localTime(0),end_km:1040})).status===403);
   const mobileSession=new Client();
   const mobileLogin=await mobileSession.call('mobile-login',driverAccount);
@@ -291,7 +295,7 @@ try {
   const refill={vehicle_id:fuelVehicle,filled_at:localTime(-100),mileage:1000,liters:'50.125',unit_price:'1.234',currency:'USD',full_tank:'1',latitude:'0',longitude:'0',accuracy:'93.5',station:'Station de test',notes:'Essai'};
   test('Ravitaillement interdit sans connexion',(await anonymous.call('save-refueling',refill)).status===401);
   test('Ravitaillement protégé par CSRF',(await client.call('save-refueling',refill,{csrf:'incorrect'})).status===403);
-  test('Ravitaillement du véhicule en mission avec un autre chauffeur interdit',(await driverSession.call('save-refueling',{...refill,vehicle_id:2})).status===403);
+  test('Ravitaillement du véhicule en mission avec un autre chauffeur interdit',(await driverSession.call('save-refueling',{...refill,vehicle_id:initialOtherVehicle})).status===403);
   test('Litres nuls refusés',(await client.call('save-refueling',{...refill,liters:'0'})).status===422);
   test('Prix négatif refusé',(await client.call('save-refueling',{...refill,unit_price:'-1'})).status===422);
   test('Précision supérieure à trois décimales refusée',(await client.call('save-refueling',{...refill,liters:'1.2345'})).status===422);
@@ -318,7 +322,7 @@ try {
   test('Saisie passée ne diminue pas le compteur',r.result.vehicles.find(v=>v.id===fuelVehicle).mileage===1500);
   test('Départ antidaté incompatible avec un ravitaillement refusé',(await client.call('depart',{...trip,driver_id:1,vehicle_id:fuelVehicle,start_at:localTime(-90),start_km:1500})).status===422);
   test('Achats et positions enregistrés par les autres comptes non exposés au chauffeur',(await driverSession.call('bootstrap')).result.refuelings.length===0);
-  test('Ravitaillement possible pendant une mission',(await client.call('save-refueling',{...partial,vehicle_id:2,filled_at:localTime(-1),mileage:1020})).status===200);
+  test('Ravitaillement possible pendant une mission',(await client.call('save-refueling',{...partial,vehicle_id:initialOtherVehicle,filled_at:localTime(-1),mileage:1020})).status===200);
   test('Retour antérieur au ravitaillement refusé',(await client.call('return',{id:2,end_at:localTime(-2),end_km:1040})).status===422);
   test('Retour inférieur au ravitaillement refusé',(await client.call('return',{id:2,end_at:localTime(0),end_km:1010})).status===422);
   test('Retour après ravitaillement accepté',(await client.call('return',{id:2,end_at:localTime(0),end_km:1040})).status===200);
@@ -326,7 +330,7 @@ try {
   const electric=(await client.call('bootstrap')).result.vehicles.find(v=>v.plate==='ELECTRIC').id;
   test('Litres interdits pour un véhicule électrique',(await client.call('save-refueling',{...refill,vehicle_id:electric})).status===422);
 
-  test('Chauffeur sans historique supprimable',(await client.call('delete-driver',{id:2})).status===200);
+  test('Chauffeur sans historique supprimable',(await client.call('delete-driver',{id:expiredDriver})).status===200);
   test('Véhicule sans historique supprimable',(await client.call('delete-vehicle',{id:electric})).status===200);
   test('Chauffeur avec historique supprimable',(await client.call('delete-driver',{id:1})).status===200);
   test('Sessions du chauffeur supprimé révoquées',(await driverSession.call('bootstrap')).status===401);
@@ -335,15 +339,15 @@ try {
   test('Véhicule avec historique supprimable',(await client.call('delete-vehicle',{id:1})).status===200);
   test('Véhicule avec ravitaillements supprimable',(await client.call('delete-vehicle',{id:fuelVehicle})).status===200);
   r=await client.call('bootstrap');
-  test('Fiches supprimées retirées des listes',!r.result.drivers.some(d=>d.id===1 || d.id===2) && !r.result.vehicles.some(v=>[1,electric,fuelVehicle].includes(v.id)));
+  test('Fiches supprimées retirées des listes',!r.result.drivers.some(d=>d.id===1 || d.id===expiredDriver) && !r.result.vehicles.some(v=>[1,electric,fuelVehicle].includes(v.id)));
   test('Compte du chauffeur supprimé retiré des accès',!r.result.accounts.some(a=>a.driver_id===1));
   test('Historique des mouvements conservé',r.result.movements.length===3 && r.result.movements.some(m=>m.driver_name===driver.name && m.plate===vehicle.plate));
   test('Historique carburant conservé après suppression',r.result.refuelings.filter(f=>f.vehicle_id===fuelVehicle).length===4 && r.result.refuelings.find(f=>f.vehicle_id===fuelVehicle).vehicle_deleted_at);
   test('Photos des fiches supprimées inaccessibles',(await client.call('photo&type=driver&id=1')).status===404 && (await client.call('photo&type=vehicle&id=1')).status===404);
   test('Double suppression refusée',(await client.call('delete-driver',{id:1})).status===422);
   test('Fiche supprimée non modifiable',(await client.call('save-driver',{...driver,id:1})).status===422 && (await client.call('save-vehicle',{...vehicle,id:1,mileage:1080})).status===422);
-  test('Chauffeur supprimé non affectable',(await client.call('depart',{...trip,driver_id:1,vehicle_id:2,start_at:localTime(0),start_km:1040})).status===422);
-  test('Véhicule supprimé non affectable',(await client.call('depart',{...trip,driver_id:3,vehicle_id:1,start_at:localTime(0),start_km:1080})).status===422);
+  test('Chauffeur supprimé non affectable',(await client.call('depart',{...trip,driver_id:1,vehicle_id:initialOtherVehicle,start_at:localTime(0),start_km:1040})).status===422);
+  test('Véhicule supprimé non affectable',(await client.call('depart',{...trip,driver_id:initialOtherDriver,vehicle_id:1,start_at:localTime(0),start_km:1080})).status===422);
   test('Accès non recréable pour un chauffeur supprimé',(await client.call('create-user',{...driverAccount,email:'removed@example.invalid'})).status===422);
   test('Ravitaillement interdit sur un véhicule supprimé',(await client.call('save-refueling',{...refill,filled_at:localTime(0),mileage:1600})).status===422);
   test('Export conserve les anciens trajets',(await client.call('export')).result.includes('TEST 001'));
@@ -367,7 +371,7 @@ try {
   r=await selfSession.call('bootstrap');
   test('Un chauffeur sans mission peut consulter tout le parc',r.result.movements.length===0 && r.result.vehicles.length===selfData.vehicles.length && r.result.vehicles.some(v=>v.id===maintenanceVehicle && v.status==='maintenance'));
   test('La liste chauffeur exclut les véhicules supprimés',!r.result.vehicles.some(v=>[1,electric,fuelVehicle].includes(v.id)));
-  test('Un chauffeur sans mission peut consulter les photos du parc',(await selfSession.call('photo&type=vehicle&id=2')).status===200);
+  test('Un chauffeur sans mission peut consulter les photos du parc',(await selfSession.call('photo&type=vehicle&id='+initialOtherVehicle)).status===200);
   test('Les photos des véhicules supprimés restent inaccessibles au chauffeur',(await selfSession.call('photo&type=vehicle&id=1')).status===403);
   test('Un chauffeur sans mission peut choisir un véhicule disponible',r.result.movements.length===0 && r.result.selectable_vehicles.some(v=>v.id===selfVehicle && !v.on_trip));
   test('Les véhicules en maintenance sont exclus du choix chauffeur',!r.result.selectable_vehicles.some(v=>v.id===maintenanceVehicle));
@@ -385,9 +389,9 @@ try {
   test('La course est automatiquement attribuée au chauffeur connecté',r.result.movements.length===1 && r.result.movements[0].driver_id===selfDriver);
   test('Le véhicule personnel en mission reste disponible pour le carburant',r.result.selectable_vehicles.some(v=>v.id===selfVehicle && v.on_trip===1));
   test('Une deuxième course simultanée du chauffeur est refusée',(await selfSession.call('depart',{...selfTrip,vehicle_id:otherVehicle})).status===422);
-  test('Un véhicule déjà en mission ne peut être réservé une deuxième fois',(await client.call('depart',{...selfTrip,driver_id:3})).status===422);
-  test('Le chauffeur ne peut créer une course pour un autre même avec un rôle falsifié',(await selfSession.call('depart',{...selfTrip,driver_id:3,vehicle_id:otherVehicle})).status===403);
-  test('Un autre chauffeur peut réserver un véhicule encore disponible',(await client.call('depart',{...selfTrip,driver_id:3,vehicle_id:otherVehicle,start_at:localTime(0)})).status===200);
+  test('Un véhicule déjà en mission ne peut être réservé une deuxième fois',(await client.call('depart',{...selfTrip,driver_id:initialOtherDriver})).status===422);
+  test('Le chauffeur ne peut créer une course pour un autre même avec un rôle falsifié',(await selfSession.call('depart',{...selfTrip,driver_id:initialOtherDriver,vehicle_id:otherVehicle})).status===403);
+  test('Un autre chauffeur peut réserver un véhicule encore disponible',(await client.call('depart',{...selfTrip,driver_id:initialOtherDriver,vehicle_id:otherVehicle,start_at:localTime(0)})).status===200);
   test('Un véhicule pris entre deux chargements disparaît du choix chauffeur',!(await selfSession.call('bootstrap')).result.selectable_vehicles.some(v=>v.id===otherVehicle));
   test('Le serveur refuse le carburant sur un véhicule pris par un autre',(await selfSession.call('save-refueling',{...selfFuel,vehicle_id:otherVehicle})).status===403);
   test('Le serveur refuse le carburant sur un véhicule en maintenance',(await selfSession.call('save-refueling',{...selfFuel,vehicle_id:maintenanceVehicle})).status===403);
@@ -414,6 +418,10 @@ try {
   r=await selfSession.call('bootstrap');
   test('Courses et achats personnels persistent après reconnexion',r.result.movements.length===2 && r.result.refuelings.length===2 && r.result.refuelings.every(f=>f.created_by===r.result.user.id));
   console.log(`\n${passed} vérifications réussies. Base temporaire isolée du parc Wamp.`);
+} catch(error) {
+  console.error(logs); throw error;
 } finally {
   server.kill();
+  const cleanup=spawnSync(php,['tests/mysql-fixture.php','cleanup'],{cwd:root,env:testEnv,windowsHide:true});
+  assert.equal(cleanup.status,0,cleanup.stdout.toString()+cleanup.stderr.toString());
 }

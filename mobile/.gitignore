@@ -4,5 +4,7 @@ android/.gradle/
 android/local.properties
 android/app/build/
 android/build/
+android/**/build/
+android/.idea/
 ios/App/Pods/
 ios/App/build/

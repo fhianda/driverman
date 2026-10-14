@@ -9,6 +9,7 @@ const php=process.env.PHP_BIN||(process.platform==='win32'?'C:/wamp64/bin/php/ph
 const root=path.resolve('.'),data=await mkdtemp(path.join(tmpdir(),'driverman-alerts-'));
 const probe=net.createServer();await new Promise(r=>probe.listen(0,'127.0.0.1',r));const port=probe.address().port;await new Promise(r=>probe.close(r));
 const env={...process.env,DRIVERMAN_DATA_DIR:data,...(process.platform==='win32'?{OPENSSL_CONF:'C:/wamp64/bin/php/php8.4.15/extras/ssl/openssl.cnf'}:{})};
+const dbInit=spawnSync(php,['tests/mysql-fixture.php','init'],{env,windowsHide:true});assert.equal(dbInit.status,0,dbInit.stdout.toString()+dbInit.stderr.toString());
 const init=spawnSync(php,['scripts/push-worker.php','--init'],{env,windowsHide:true});assert.equal(init.status,0,init.stderr.toString());
 const server=spawn(php,['-S',`127.0.0.1:${port}`,'-t',root],{env,windowsHide:true,stdio:'ignore'});
 const base=`http://127.0.0.1:${port}/api.php?action=`;
@@ -72,4 +73,4 @@ try {
   // Queue, retries and cryptography exercised without contacting any real push provider.
   const unit=spawnSync(php,['tests/push-queue.php'],{env,windowsHide:true});assert.equal(unit.status,0,unit.stdout.toString()+unit.stderr.toString());
   console.log(`${checks} contrôles API notifications réussis. ${unit.stdout.toString().trim()}`);
-} finally { server.kill(); }
+ } finally { server.kill(); const cleanup=spawnSync(php,['tests/mysql-fixture.php','cleanup'],{env,windowsHide:true});assert.equal(cleanup.status,0,cleanup.stdout.toString()+cleanup.stderr.toString()); }

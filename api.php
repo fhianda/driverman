@@ -76,7 +76,7 @@ try {
         $password = $input['password'] ?? '';
         if (!is_string($password) || strlen($password) > 72 || $password === '') fail('Mot de passe invalide.');
         if (!$user || !password_verify($password, $user['password'])) {
-            $db->prepare('INSERT INTO login_attempts(address,attempts,reset_at) VALUES(?,1,?) ON CONFLICT(address) DO UPDATE SET attempts=CASE WHEN reset_at < ? THEN 1 ELSE attempts+1 END,reset_at=CASE WHEN reset_at < ? THEN excluded.reset_at ELSE reset_at END')->execute([$address, time()+900, time(), time()]);
+            $db->prepare('INSERT INTO login_attempts(address,attempts,reset_at) VALUES(?,1,?) AS incoming ON DUPLICATE KEY UPDATE attempts=CASE WHEN login_attempts.reset_at < ? THEN 1 ELSE login_attempts.attempts+1 END,reset_at=CASE WHEN login_attempts.reset_at < ? THEN incoming.reset_at ELSE login_attempts.reset_at END')->execute([$address, time()+900, time(), time()]);
             fail('Adresse e-mail ou mot de passe incorrect.', 401);
         }
         $db->prepare('DELETE FROM login_attempts WHERE address=?')->execute([$address]);
@@ -154,7 +154,7 @@ try {
             if (!filter_var($url,FILTER_VALIDATE_URL) || !$parts || ($parts['scheme'] ?? '') !== 'https' || empty($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) fail('Indiquez une adresse HTTPS sans identifiants, paramètres ou fragment.');
             $url=rtrim($url,'/').'/';
         }
-        $db->prepare('INSERT INTO app_settings(name,value) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value')->execute(['mobile_public_url',$url]);
+        $db->prepare('INSERT INTO app_settings(name,value) VALUES(?,?) AS incoming ON DUPLICATE KEY UPDATE value=incoming.value')->execute(['mobile_public_url',$url]);
         respond(['success'=>true]);
     }
 
@@ -172,7 +172,7 @@ try {
         $statement = $db->prepare('SELECT password FROM users WHERE id=?');
         $statement->execute([$_SESSION['user']['id']]);
         if (!password_verify($current, $statement->fetchColumn())) {
-            $db->prepare('INSERT INTO login_attempts(address,attempts,reset_at) VALUES(?,1,?) ON CONFLICT(address) DO UPDATE SET attempts=CASE WHEN reset_at < ? THEN 1 ELSE attempts+1 END,reset_at=CASE WHEN reset_at < ? THEN excluded.reset_at ELSE reset_at END')->execute([$key,time()+900,time(),time()]);
+            $db->prepare('INSERT INTO login_attempts(address,attempts,reset_at) VALUES(?,1,?) AS incoming ON DUPLICATE KEY UPDATE attempts=CASE WHEN login_attempts.reset_at < ? THEN 1 ELSE login_attempts.attempts+1 END,reset_at=CASE WHEN login_attempts.reset_at < ? THEN incoming.reset_at ELSE login_attempts.reset_at END')->execute([$key,time()+900,time(),time()]);
             fail('Le mot de passe actuel est incorrect.');
         }
         $db->prepare('UPDATE users SET password=? WHERE id=?')->execute([password_hash($password, PASSWORD_DEFAULT),$_SESSION['user']['id']]);
@@ -253,7 +253,7 @@ try {
             }
             if ($vehicle['fuel'] === 'Électrique') throw new DomainException('Ce véhicule électrique ne peut pas recevoir de carburant en litres.');
             // Vérifier les saisies antidatées sans abaisser le compteur actuel.
-            $statement = $db->prepare('SELECT at,km FROM (SELECT filled_at AS at,mileage AS km FROM refuelings WHERE vehicle_id=? UNION ALL SELECT start_at,start_km FROM movements WHERE vehicle_id=? UNION ALL SELECT end_at,end_km FROM movements WHERE vehicle_id=? AND end_at IS NOT NULL) ORDER BY at');
+            $statement = $db->prepare('SELECT at,km FROM (SELECT filled_at AS at,mileage AS km FROM refuelings WHERE vehicle_id=? UNION ALL SELECT start_at,start_km FROM movements WHERE vehicle_id=? UNION ALL SELECT end_at,end_km FROM movements WHERE vehicle_id=? AND end_at IS NOT NULL) AS readings ORDER BY at');
             $statement->execute([$vehicleId,$vehicleId,$vehicleId]);
             $readings = $statement->fetchAll();
             foreach ($readings as $reading) {
@@ -262,7 +262,7 @@ try {
             if ((!$readings || $at >= $readings[array_key_last($readings)]['at']) && $mileage < $vehicle['mileage']) throw new DomainException('Le kilométrage ne peut pas être inférieur au compteur actuel.');
             $db->prepare('INSERT INTO refuelings(vehicle_id,filled_at,mileage,liters_ml,unit_price_milli,currency,full_tank,latitude,longitude,accuracy,station,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute([$vehicleId,$at,$mileage,$liters,$price,$currency,$full,$latitude,$longitude,$accuracy,$station,$notes,$_SESSION['user']['id']]);
             recordNotification($db,'fuel',(int)$db->lastInsertId(),'Achat de carburant',$_SESSION['user']['name'].' · '.$vehicle['plate'].' · '.number_format($liters/1000,2,',',' ').' L · '.number_format($liters*$price/1000000,2,',',' ').' '.$currency);
-            $db->prepare('UPDATE vehicles SET mileage=MAX(mileage,CAST(? AS INTEGER)) WHERE id=?')->execute([$mileage,$vehicleId]);
+            $db->prepare('UPDATE vehicles SET mileage=GREATEST(mileage,CAST(? AS SIGNED)) WHERE id=?')->execute([$mileage,$vehicleId]);
         });
         dispatchPushAfterResponse($db);
         respond(['success' => true]);
@@ -410,10 +410,10 @@ try {
     fail($e->getMessage(), $e->getCode() === 403 ? 403 : 422);
 } catch (PDOException $e) {
     error_log('DriverMan database: ' . $e->getMessage());
-    if (str_contains($e->getMessage(), 'users.email')) fail('Un compte utilise déjà cette adresse e-mail.', 409);
-    if (str_contains($e->getMessage(), 'users.driver_id')) fail('Ce chauffeur possède déjà un compte.', 409);
-    if (str_contains($e->getMessage(), 'refuelings.vehicle_id')) fail('Un ravitaillement existe déjà pour ce véhicule à cette date et cette heure.', 409);
-    if (str_contains($e->getMessage(), 'UNIQUE constraint')) fail('Cette immatriculation ou ce permis est déjà enregistré, ou cette ressource est déjà en mission.', 409);
+    if (str_contains($e->getMessage(), 'users_email')) fail('Un compte utilise déjà cette adresse e-mail.', 409);
+    if (str_contains($e->getMessage(), 'users_driver_id')) fail('Ce chauffeur possède déjà un compte.', 409);
+    if (str_contains($e->getMessage(), 'refuelings_vehicle_date')) fail('Un ravitaillement existe déjà pour ce véhicule à cette date et cette heure.', 409);
+    if (($e->errorInfo[1] ?? 0) === 1062) fail('Cette immatriculation ou ce permis est déjà enregistré, ou cette ressource est déjà en mission.', 409);
     fail('La base de données est momentanément indisponible. Réessayez.', 503);
 } catch (Throwable $e) {
     error_log('DriverMan: ' . $e->getMessage());

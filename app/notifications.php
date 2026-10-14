@@ -17,7 +17,7 @@ function recordNotification(PDO $db, string $event, int $sourceId, string $title
     $recipients=$db->prepare("SELECT p.user_id FROM notification_preferences p JOIN users u ON u.id=p.user_id WHERE u.role='admin' AND p.event=? AND p.mode<>'off'");
     $recipients->execute([$event]);
     foreach ($recipients->fetchAll() as $recipient) {
-        $insert=$db->prepare('INSERT OR IGNORE INTO notifications(user_id,event,source_id,title,body,created_at) VALUES(?,?,?,?,?,?)');
+        $insert=$db->prepare('INSERT INTO notifications(user_id,event,source_id,title,body,created_at) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id');
         $insert->execute([$recipient['user_id'],$event,$sourceId,$title,$body,time()]);
         if (!$insert->rowCount()) continue;
         $id=(int)$db->lastInsertId();
@@ -75,7 +75,7 @@ function notificationAction(PDO $db, string $action, array $input, bool $admin):
         foreach (['departure','fuel'] as $event) $modes[$event]=choice($input,$event,['off','sound','vibrate','both','silent']);
         transaction($db,function() use($db,$userId,$modes) {
             foreach ($modes as $event=>$mode) {
-                $db->prepare('INSERT INTO notification_preferences(user_id,event,mode) VALUES(?,?,?) ON CONFLICT(user_id,event) DO UPDATE SET mode=excluded.mode')->execute([$userId,$event,$mode]);
+                $db->prepare('INSERT INTO notification_preferences(user_id,event,mode) VALUES(?,?,?) AS incoming ON DUPLICATE KEY UPDATE mode=incoming.mode')->execute([$userId,$event,$mode]);
                 if ($mode==='off') $db->prepare("UPDATE push_jobs SET state='cancelled' WHERE state='pending' AND notification_id IN (SELECT id FROM notifications WHERE user_id=? AND event=?)")->execute([$userId,$event]);
             }
         });
@@ -95,7 +95,7 @@ function notificationAction(PDO $db, string $action, array $input, bool $admin):
             $hash=hash('sha256',$kind.':'.$address);
             // Remove deliveries tied to a previous session/account before reassigning a device.
             $db->prepare('DELETE FROM push_jobs WHERE device_id IN (SELECT id FROM push_devices WHERE address_hash=? AND (user_id<>? OR binding<>?))')->execute([$hash,$userId,pushBinding()]);
-            $db->prepare('INSERT INTO push_devices(user_id,kind,address_hash,subscription,binding,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(address_hash) DO UPDATE SET user_id=excluded.user_id,subscription=excluded.subscription,binding=excluded.binding,updated_at=excluded.updated_at')->execute([$userId,$kind,$hash,$subscription,pushBinding(),time()]);
+            $db->prepare('INSERT INTO push_devices(user_id,kind,address_hash,subscription,binding,updated_at) VALUES(?,?,?,?,?,?) AS incoming ON DUPLICATE KEY UPDATE user_id=incoming.user_id,subscription=incoming.subscription,binding=incoming.binding,updated_at=incoming.updated_at')->execute([$userId,$kind,$hash,$subscription,pushBinding(),time()]);
         });
         respond(['success'=>true]);
     }

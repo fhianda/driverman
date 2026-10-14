@@ -11,8 +11,8 @@ AddType application/manifest+json .webmanifest
   # Preserve mobile bearer authentication when Apache does not forward it to PHP.
   RewriteCond %{HTTP:Authorization} .
   RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-  RewriteRule ^(?:node_modules|vendor|scripts|\.git)(?:/|$) - [F,L]
+  RewriteRule ^(?:app|node_modules|vendor|scripts|\.git)(?:/|$) - [F,L]
 </IfModule>
-<FilesMatch "^(README\.md|\.env|\.gitignore|composer\.(?:json|lock)|google-services\.json|push\.json)$">
+<FilesMatch "^(README\.md|\.env|\.gitignore|composer\.(?:json|lock)|google-services\.json|push\.json|database\.json)$">
   Require all denied
 </FilesMatch>

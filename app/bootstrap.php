@@ -29,123 +29,7 @@ function dataDir(): string
     return $path;
 }
 
-function database(bool $production = false): PDO
-{
-    static $connections = [];
-    $demo = !$production && !empty($_SESSION['demo_id']) ? $_SESSION['demo_id'] : null;
-    $file = $demo ? 'demo-' . $demo . '.sqlite' : 'driverman.sqlite';
-    if (isset($connections[$file])) return $connections[$file];
-    $db = new PDO('sqlite:' . dataDir() . DIRECTORY_SEPARATOR . $file, null, null, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-    $db->exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;');
-    $db->exec(<<<'SQL'
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','driver')),
-    driver_id INTEGER REFERENCES drivers(id)
-);
-CREATE TABLE IF NOT EXISTS login_attempts (
-    address TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, reset_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS drivers (
-    id INTEGER PRIMARY KEY, name TEXT NOT NULL, phone TEXT NOT NULL, license TEXT NOT NULL UNIQUE,
-    license_expiry TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'available' CHECK(status IN ('available','offline')),
-    deleted_at TEXT
-);
-CREATE TABLE IF NOT EXISTS vehicles (
-    id INTEGER PRIMARY KEY, plate TEXT NOT NULL UNIQUE, make TEXT NOT NULL, model TEXT NOT NULL,
-    type TEXT NOT NULL, fuel TEXT NOT NULL, mileage INTEGER NOT NULL DEFAULT 0 CHECK(mileage >= 0),
-    status TEXT NOT NULL DEFAULT 'available' CHECK(status IN ('available','maintenance')),
-    deleted_at TEXT
-);
-CREATE TABLE IF NOT EXISTS movements (
-    id INTEGER PRIMARY KEY, driver_id INTEGER NOT NULL REFERENCES drivers(id),
-    vehicle_id INTEGER NOT NULL REFERENCES vehicles(id), destination TEXT NOT NULL, purpose TEXT NOT NULL,
-    start_at TEXT NOT NULL, expected_return TEXT NOT NULL, start_km INTEGER NOT NULL CHECK(start_km >= 0),
-    end_at TEXT, end_km INTEGER, notes TEXT NOT NULL DEFAULT '',
-    CHECK(end_km IS NULL OR end_km >= start_km), CHECK(end_at IS NULL OR end_at >= start_at)
-);
-CREATE UNIQUE INDEX IF NOT EXISTS one_active_driver ON movements(driver_id) WHERE end_at IS NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS one_active_vehicle ON movements(vehicle_id) WHERE end_at IS NULL;
-CREATE TABLE IF NOT EXISTS resource_photos (
-    resource_type TEXT NOT NULL CHECK(resource_type IN ('driver','vehicle')),
-    resource_id INTEGER NOT NULL, version TEXT NOT NULL, content BLOB NOT NULL,
-    PRIMARY KEY(resource_type,resource_id)
-);
-CREATE TABLE IF NOT EXISTS refuelings (
-    id INTEGER PRIMARY KEY, vehicle_id INTEGER NOT NULL REFERENCES vehicles(id),
-    filled_at TEXT NOT NULL, mileage INTEGER NOT NULL CHECK(mileage >= 0),
-    liters_ml INTEGER NOT NULL CHECK(liters_ml > 0), unit_price_milli INTEGER NOT NULL CHECK(unit_price_milli >= 0),
-    currency TEXT NOT NULL CHECK(currency IN ('USD','CDF')),
-    full_tank INTEGER NOT NULL DEFAULT 0 CHECK(full_tank IN (0,1)),
-    latitude REAL, longitude REAL, accuracy REAL,
-    station TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
-    created_by INTEGER, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CHECK((latitude IS NULL AND longitude IS NULL AND accuracy IS NULL) OR
-          (latitude IS NOT NULL AND longitude IS NOT NULL AND latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180 AND (accuracy IS NULL OR accuracy >= 0))),
-    UNIQUE(vehicle_id,filled_at)
-);
-CREATE INDEX IF NOT EXISTS refuelings_vehicle_date ON refuelings(vehicle_id,filled_at);
-CREATE TABLE IF NOT EXISTS mobile_tokens (
-    token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
-    expires_at INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS app_settings (name TEXT PRIMARY KEY, value TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS notification_preferences (
-    user_id INTEGER NOT NULL, event TEXT NOT NULL CHECK(event IN ('departure','fuel')),
-    mode TEXT NOT NULL CHECK(mode IN ('off','sound','vibrate','both','silent')),
-    PRIMARY KEY(user_id,event)
-);
-CREATE TABLE IF NOT EXISTS notifications (
-    id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, event TEXT NOT NULL, source_id INTEGER NOT NULL,
-    title TEXT NOT NULL, body TEXT NOT NULL, created_at INTEGER NOT NULL, read_at INTEGER,
-    UNIQUE(user_id,event,source_id)
-);
-CREATE INDEX IF NOT EXISTS notifications_user_date ON notifications(user_id,id DESC);
-CREATE TABLE IF NOT EXISTS push_devices (
-    id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('web','android')),
-    address_hash TEXT NOT NULL UNIQUE, subscription TEXT NOT NULL, binding TEXT NOT NULL,
-    updated_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS push_jobs (
-    id INTEGER PRIMARY KEY, notification_id INTEGER NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
-    device_id INTEGER NOT NULL REFERENCES push_devices(id) ON DELETE CASCADE,
-    attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL, lease_until INTEGER NOT NULL DEFAULT 0,
-    state TEXT NOT NULL DEFAULT 'pending', last_error TEXT,
-    UNIQUE(notification_id,device_id)
-);
-CREATE TABLE IF NOT EXISTS movement_positions (
-    id INTEGER PRIMARY KEY, movement_id INTEGER NOT NULL REFERENCES movements(id),
-    sample_id TEXT NOT NULL, segment_id TEXT NOT NULL,
-    recorded_at INTEGER NOT NULL, latitude REAL NOT NULL CHECK(latitude BETWEEN -90 AND 90),
-    longitude REAL NOT NULL CHECK(longitude BETWEEN -180 AND 180),
-    accuracy REAL NOT NULL CHECK(accuracy > 0 AND accuracy <= 50),
-    created_by INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(movement_id,sample_id)
-);
-CREATE INDEX IF NOT EXISTS positions_movement_time ON movement_positions(movement_id,recorded_at,id);
-CREATE TABLE IF NOT EXISTS movement_routes (
-    id INTEGER PRIMARY KEY, movement_id INTEGER NOT NULL REFERENCES movements(id),
-    file_hash TEXT NOT NULL, name TEXT NOT NULL, format TEXT NOT NULL,
-    segments_json TEXT NOT NULL, point_count INTEGER NOT NULL,
-    created_by INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(movement_id,file_hash)
-);
-SQL);
-    // Migration des installations créées avant l'ajout des comptes chauffeurs.
-    $columns = array_column($db->query('PRAGMA table_info(users)')->fetchAll(), 'name');
-    if (!in_array('role', $columns, true)) $db->exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','driver'))");
-    if (!in_array('driver_id', $columns, true)) $db->exec('ALTER TABLE users ADD COLUMN driver_id INTEGER REFERENCES drivers(id)');
-    $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS one_account_per_driver ON users(driver_id) WHERE driver_id IS NOT NULL');
-    // Conserver les références des trajets lorsque les fiches sont retirées du parc.
-    foreach (['drivers', 'vehicles'] as $table) {
-        $columns = array_column($db->query("PRAGMA table_info($table)")->fetchAll(), 'name');
-        if (!in_array('deleted_at', $columns, true)) $db->exec("ALTER TABLE $table ADD COLUMN deleted_at TEXT");
-    }
-    return $connections[$file] = $db;
-}
+require_once __DIR__.'/database.php';
 
 function respond(array $data, int $status = 200): never
 {
@@ -229,13 +113,15 @@ function activeFor(PDO $db, string $column, int $id): bool
 
 function transaction(PDO $db, callable $fn): mixed
 {
-    $db->exec('BEGIN IMMEDIATE');
+    $db->beginTransaction();
     try {
+        // Serialize business checks as SQLite previously did, now using an InnoDB row lock.
+        $db->query('SELECT id FROM app_write_lock WHERE id=1 FOR UPDATE')->fetchColumn();
         $result = $fn();
-        $db->exec('COMMIT');
+        $db->commit();
         return $result;
     } catch (Throwable $e) {
-        $db->exec('ROLLBACK');
+        if ($db->inTransaction()) $db->rollBack();
         throw $e;
     }
 }
@@ -283,7 +169,7 @@ function uploadedPhoto(string $type): ?string
 function savePhoto(PDO $db, string $type, int $id, ?string $photo, bool $remove): void
 {
     if ($photo !== null) {
-        $statement = $db->prepare('INSERT INTO resource_photos(resource_type,resource_id,version,content) VALUES(?,?,?,?) ON CONFLICT(resource_type,resource_id) DO UPDATE SET version=excluded.version,content=excluded.content');
+        $statement = $db->prepare('INSERT INTO resource_photos(resource_type,resource_id,version,content) VALUES(?,?,?,?) AS incoming ON DUPLICATE KEY UPDATE version=incoming.version,content=incoming.content');
         $statement->bindValue(1, $type);
         $statement->bindValue(2, $id, PDO::PARAM_INT);
         $statement->bindValue(3, bin2hex(random_bytes(12)));

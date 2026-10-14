@@ -1,8 +1,10 @@
 # DriverMan TELESOL
 
-Application en français de gestion des chauffeurs, véhicules et mouvements, conçue pour Wamp. Interface responsive avec **Tailwind CSS 4, daisyUI 5 et Alpine.js 3 (version CSP)**. Serveur PHP et base SQLite persistante.
+Application en français de gestion des chauffeurs, véhicules et mouvements, conçue pour Wamp. Interface responsive avec **Tailwind CSS 4, daisyUI 5 et Alpine.js 3 (version CSP)**. Serveur PHP et base MySQL persistante.
 
 ## Démarrer
+
+Pour la mise en ligne sur `driverman.trackkintrans.com` depuis GitHub, voir [le guide de déploiement](docs/deploiement.md).
 
 1. Démarrer Apache dans Wamp.
 2. Ouvrir **http://localhost/driverman/**.
@@ -19,7 +21,7 @@ L’espace connecté reprend la même identité que l’accueil : surfaces anthr
 
 Les chauffeurs et les véhicules sont présentés en cartes dans `assets/cards.css`. Chaque carte chauffeur affiche un petit avatar rond, les coordonnées, la validité du permis, le compte d’accès et les missions enregistrées. Chaque carte véhicule affiche sa photo, la plaque, l’énergie, le compteur et l’éventuelle mission en cours. Sans photo, un pictogramme de personne ou de véhicule apparaît. Les statistiques proviennent des mouvements enregistrés. Recherche, filtres et modification restent disponibles.
 
-Dans **Ajouter** ou **Modifier**, choisir une photo JPG, PNG ou WebP de **2 Mo maximum** (12 mégapixels et 6 000 pixels par côté maximum). L’aperçu apparaît avant l’enregistrement ; **Retirer la photo** prend effet à l’enregistrement de la fiche. Le bouton photo sur une carte véhicule ouvre directement sa fiche. Le serveur vérifie le contenu, corrige l’orientation EXIF si disponible et convertit les photos en JPEG sans métadonnées, avec un côté maximal de 512 pixels pour les avatars et 1 600 pixels pour les véhicules. Les photos sont enregistrées dans SQLite et servies uniquement aux comptes autorisés ; une sauvegarde de la base les inclut.
+Dans **Ajouter** ou **Modifier**, choisir une photo JPG, PNG ou WebP de **2 Mo maximum** (12 mégapixels et 6 000 pixels par côté maximum). L’aperçu apparaît avant l’enregistrement ; **Retirer la photo** prend effet à l’enregistrement de la fiche. Le bouton photo sur une carte véhicule ouvre directement sa fiche. Le serveur vérifie le contenu, corrige l’orientation EXIF si disponible et convertit les photos en JPEG sans métadonnées, avec un côté maximal de 512 pixels pour les avatars et 1 600 pixels pour les véhicules. Les photos sont enregistrées dans MySQL et servies uniquement aux comptes autorisés ; une sauvegarde de la base les inclut.
 
 Le champ **Type de véhicule** propose les catégories habituelles et accepte un nouveau libellé. Après enregistrement, ce type devient une suggestion pour les véhicules suivants tant qu’il est utilisé dans le parc.
 
@@ -43,7 +45,7 @@ Le tableau de bord administrateur présente uniquement les cartes d’indicateur
 
 Les litres ravitaillés ne mesurent pas à eux seuls la consommation. Le calcul **plein à plein** additionne les ajouts après un premier plein complet jusqu’au plein complet suivant, puis divise par la différence des compteurs. Le premier plein n’entre pas dans la quantité consommée ; les ajouts partiels intermédiaires sont inclus. Sans deux pleins complets à des kilométrages distincts, la consommation reste indéterminée. La moyenne du parc est pondérée par les distances. Chaque intervalle est rattaché au jour du plein final : le total filtré n’est donc pas une mesure exacte du carburant brûlé durant les seules dates affichées. Les pleins manquants ou mal déclarés faussent cette estimation.
 
-Les compteurs sont contrôlés par rapport aux ravitaillements et mouvements antérieurs et postérieurs. Une saisie antidatée ne diminue jamais le compteur du véhicule ; un retour de mission ne peut pas précéder un ravitaillement enregistré pendant la mission ni abaisser le compteur. Les données sont conservées dans SQLite et incluses dans sa sauvegarde.
+Les compteurs sont contrôlés par rapport aux ravitaillements et mouvements antérieurs et postérieurs. Une saisie antidatée ne diminue jamais le compteur du véhicule ; un retour de mission ne peut pas précéder un ravitaillement enregistré pendant la mission ni abaisser le compteur. Les données sont conservées dans MySQL et incluses dans sa sauvegarde.
 
 ## Rapports et exports
 
@@ -134,7 +136,7 @@ L’import est un complément facultatif pour les anciens tracés : il n’inter
 
 Les segments, coordonnées et horaires présents sont conservés. Les fichiers sans horaires restent utilisables, avec une indication explicite : leurs heures de passage ne peuvent pas être vérifiées. Si des horaires sont présents, ils doivent être inclus dans la course choisie. Les déclarations XML externes, coordonnées hors limites, polygones et formats incorrects sont refusés. Limites : 2 Mo / 20 000 points par fichier, 20 fichiers / 100 000 points importés par course. Un nouvel envoi du même fichier ne crée pas de doublon. L’administrateur peut importer pour toute course ; un chauffeur uniquement pour les siennes.
 
-Les imports sont enregistrés dans SQLite, séparément du GPS du téléphone. Le sélecteur **Tracé affiché** permet de choisir leur provenance sans mélanger des fichiers aux heures inconnues avec les relevés natifs. Les archives restent disponibles après le retrait d’un véhicule ou chauffeur du parc et sont incluses dans la sauvegarde de la base.
+Les imports sont enregistrés dans MySQL, séparément du GPS du téléphone. Le sélecteur **Tracé affiché** permet de choisir leur provenance sans mélanger des fichiers aux heures inconnues avec les relevés natifs. Les archives restent disponibles après le retrait d’un véhicule ou chauffeur du parc et sont incluses dans la sauvegarde de la base.
 
 ### Générer la carte au retour
 
@@ -144,16 +146,16 @@ Les imports sont enregistrés dans SQLite, séparément du GPS du téléphone. L
 
 ## Données et configuration
 
-PHP **8.2 ou supérieur**, avec `pdo_sqlite`, `mbstring`, `session`, `dom`/`libxml` pour les imports GPS et `gd` pour les photos (`exif` recommandé pour leur orientation). Configurer `upload_max_filesize` à au moins `2M` et `post_max_size` à au moins `3M`. Les dépendances front-end sont compilées et incluses dans `assets/` : Node.js n’est pas nécessaire pour utiliser l’application. Le fond de carte OpenStreetMap nécessite une connexion Internet.
+PHP **8.2 ou supérieur**, avec `pdo_mysql`, `mbstring`, `session`, `dom`/`libxml` pour les imports GPS et `gd` pour les photos (`exif` recommandé pour leur orientation). Configurer `upload_max_filesize` à au moins `2M` et `post_max_size` à au moins `3M`. Les dépendances front-end sont compilées et incluses dans `assets/` : Node.js n’est pas nécessaire pour utiliser l’application. Le fond de carte OpenStreetMap nécessite une connexion Internet.
 
-Par défaut dans cette installation, les bases sont stockées dans **`C:\wamp64\driverman-data`**, en dehors du dossier web. Le parc réel utilise `driverman.sqlite`. Les démonstrations utilisent un fichier `demo-<identifiant aléatoire>.sqlite` séparé par session.
+Le parc réel utilise la base **MySQL `driverman`**, sur `127.0.0.1:3306` (MySQL 8.4 minimum, tables InnoDB et UTF-8 complet). La connexion est définie dans **`C:\wamp64\driverman-data\database.json`**, hors du dossier web. Chaque démonstration possède une base MySQL distincte `driverman_demo_<identifiant de session>`. Aucun repli vers SQLite n’est effectué. Voir [configuration et migration MySQL](docs/mysql.md).
 
 Variables d’environnement facultatives, à définir dans la configuration du serveur PHP/Apache :
 
 - `DRIVERMAN_DATA_DIR` : répertoire inscriptible par le serveur, à conserver en dehors de la racine web.
 - `DRIVERMAN_TIMEZONE` : fuseau horaire de l’application, par défaut `Africa/Lagos` (UTC+1).
 
-Conserver une sauvegarde cohérente SQLite du répertoire de données avant un transfert. Le compte Apache doit avoir le droit d’y écrire. Les fichiers `.htaccess` protègent les dossiers de code interne et désactivent l’indexation. Pour un hébergement au-delà du réseau local, configurer HTTPS.
+Sauvegarder la base MySQL avec `mysqldump --single-transaction --hex-blob` ainsi que la configuration privée avant un transfert. Les anciennes bases SQLite ne servent que de sauvegarde historique. Le compte Apache doit avoir le droit d’y écrire. Les fichiers `.htaccess` protègent les dossiers de code interne et désactivent l’indexation. Pour un hébergement au-delà du réseau local, configurer HTTPS.
 
 ## Développement et vérification
 
@@ -168,7 +170,7 @@ npm test
 
 Les tests `reports.mjs` vérifient les limites de mois, les courses à cheval sur deux mois, les devises, les pleins antérieurs à la période, les véhicules retirés et la relecture des exports Excel. Ils génèrent aussi des PDF simples et multipages. `pwa.mjs` vérifie les scénarios de première visite, installation, refus, détection, stockage privé, les dimensions des icônes et l’exclusion des données privées du cache. Les exports et leurs styles se trouvent dans `assets/report-*.js` et `assets/reports.css` ; l’installation dans `assets/pwa.js`, `manifest.webmanifest` et `sw.js`.
 
-Les tests d’intégration lancent leur propre serveur PHP sur un port libre et une base temporaire isolée. Ils vérifient l’authentification, les validations métier, l’isolation de la démonstration, les autorisations des deux rôles, les photos (ajout, remplacement, suppression, format, taille, confidentialité et persistance), les types personnalisés et le changement du mot de passe personnel. Sur Wamp, PHP 8 est détecté automatiquement ; ailleurs, utiliser `PHP_BIN` si PHP n’est pas dans le PATH.
+Les tests d’intégration lancent leur propre serveur PHP sur un port libre et des bases MySQL temporaires isolées, supprimées après les tests. MySQL doit fonctionner ; les paramètres administrateur de test sont décrits dans `docs/mysql.md`. Ils vérifient l’authentification, les validations métier, l’isolation de la démonstration, les autorisations des deux rôles, les photos (ajout, remplacement, suppression, format, taille, confidentialité et persistance), les types personnalisés et le changement du mot de passe personnel. Sur Wamp, PHP 8 est détecté automatiquement ; ailleurs, utiliser `PHP_BIN` si PHP n’est pas dans le PATH.
 
 ## Identité et ressources
 
