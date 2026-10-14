@@ -169,7 +169,7 @@ function uploadedPhoto(string $type): ?string
 function savePhoto(PDO $db, string $type, int $id, ?string $photo, bool $remove): void
 {
     if ($photo !== null) {
-        $statement = $db->prepare('INSERT INTO resource_photos(resource_type,resource_id,version,content) VALUES(?,?,?,?) AS incoming ON DUPLICATE KEY UPDATE version=incoming.version,content=incoming.content');
+        $statement = $db->prepare('INSERT INTO resource_photos(resource_type,resource_id,version,content) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE version=VALUES(version),content=VALUES(content)');
         $statement->bindValue(1, $type);
         $statement->bindValue(2, $id, PDO::PARAM_INT);
         $statement->bindValue(3, bin2hex(random_bytes(12)));

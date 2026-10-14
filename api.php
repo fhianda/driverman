@@ -76,7 +76,7 @@ try {
         $password = $input['password'] ?? '';
         if (!is_string($password) || strlen($password) > 72 || $password === '') fail('Mot de passe invalide.');
         if (!$user || !password_verify($password, $user['password'])) {
-            $db->prepare('INSERT INTO login_attempts(address,attempts,reset_at) VALUES(?,1,?) AS incoming ON DUPLICATE KEY UPDATE attempts=CASE WHEN login_attempts.reset_at < ? THEN 1 ELSE login_attempts.attempts+1 END,reset_at=CASE WHEN login_attempts.reset_at < ? THEN incoming.reset_at ELSE login_attempts.reset_at END')->execute([$address, time()+900, time(), time()]);
+            $db->prepare('INSERT INTO login_attempts(address,attempts,reset_at) VALUES(?,1,?) ON DUPLICATE KEY UPDATE attempts=CASE WHEN login_attempts.reset_at < ? THEN 1 ELSE login_attempts.attempts+1 END,reset_at=CASE WHEN login_attempts.reset_at < ? THEN VALUES(reset_at) ELSE login_attempts.reset_at END')->execute([$address, time()+900, time(), time()]);
             fail('Adresse e-mail ou mot de passe incorrect.', 401);
         }
         $db->prepare('DELETE FROM login_attempts WHERE address=?')->execute([$address]);
@@ -154,7 +154,7 @@ try {
             if (!filter_var($url,FILTER_VALIDATE_URL) || !$parts || ($parts['scheme'] ?? '') !== 'https' || empty($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) fail('Indiquez une adresse HTTPS sans identifiants, paramètres ou fragment.');
             $url=rtrim($url,'/').'/';
         }
-        $db->prepare('INSERT INTO app_settings(name,value) VALUES(?,?) AS incoming ON DUPLICATE KEY UPDATE value=incoming.value')->execute(['mobile_public_url',$url]);
+        $db->prepare('INSERT INTO app_settings(name,value) VALUES(?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)')->execute(['mobile_public_url',$url]);
         respond(['success'=>true]);
     }
 
@@ -172,7 +172,7 @@ try {
         $statement = $db->prepare('SELECT password FROM users WHERE id=?');
         $statement->execute([$_SESSION['user']['id']]);
         if (!password_verify($current, $statement->fetchColumn())) {
-            $db->prepare('INSERT INTO login_attempts(address,attempts,reset_at) VALUES(?,1,?) AS incoming ON DUPLICATE KEY UPDATE attempts=CASE WHEN login_attempts.reset_at < ? THEN 1 ELSE login_attempts.attempts+1 END,reset_at=CASE WHEN login_attempts.reset_at < ? THEN incoming.reset_at ELSE login_attempts.reset_at END')->execute([$key,time()+900,time(),time()]);
+            $db->prepare('INSERT INTO login_attempts(address,attempts,reset_at) VALUES(?,1,?) ON DUPLICATE KEY UPDATE attempts=CASE WHEN login_attempts.reset_at < ? THEN 1 ELSE login_attempts.attempts+1 END,reset_at=CASE WHEN login_attempts.reset_at < ? THEN VALUES(reset_at) ELSE login_attempts.reset_at END')->execute([$key,time()+900,time(),time()]);
             fail('Le mot de passe actuel est incorrect.');
         }
         $db->prepare('UPDATE users SET password=? WHERE id=?')->execute([password_hash($password, PASSWORD_DEFAULT),$_SESSION['user']['id']]);

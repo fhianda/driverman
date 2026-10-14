@@ -75,7 +75,7 @@ function notificationAction(PDO $db, string $action, array $input, bool $admin):
         foreach (['departure','fuel'] as $event) $modes[$event]=choice($input,$event,['off','sound','vibrate','both','silent']);
         transaction($db,function() use($db,$userId,$modes) {
             foreach ($modes as $event=>$mode) {
-                $db->prepare('INSERT INTO notification_preferences(user_id,event,mode) VALUES(?,?,?) AS incoming ON DUPLICATE KEY UPDATE mode=incoming.mode')->execute([$userId,$event,$mode]);
+                $db->prepare('INSERT INTO notification_preferences(user_id,event,mode) VALUES(?,?,?) ON DUPLICATE KEY UPDATE mode=VALUES(mode)')->execute([$userId,$event,$mode]);
                 if ($mode==='off') $db->prepare("UPDATE push_jobs SET state='cancelled' WHERE state='pending' AND notification_id IN (SELECT id FROM notifications WHERE user_id=? AND event=?)")->execute([$userId,$event]);
             }
         });
@@ -95,7 +95,7 @@ function notificationAction(PDO $db, string $action, array $input, bool $admin):
             $hash=hash('sha256',$kind.':'.$address);
             // Remove deliveries tied to a previous session/account before reassigning a device.
             $db->prepare('DELETE FROM push_jobs WHERE device_id IN (SELECT id FROM push_devices WHERE address_hash=? AND (user_id<>? OR binding<>?))')->execute([$hash,$userId,pushBinding()]);
-            $db->prepare('INSERT INTO push_devices(user_id,kind,address_hash,subscription,binding,updated_at) VALUES(?,?,?,?,?,?) AS incoming ON DUPLICATE KEY UPDATE user_id=incoming.user_id,subscription=incoming.subscription,binding=incoming.binding,updated_at=incoming.updated_at')->execute([$userId,$kind,$hash,$subscription,pushBinding(),time()]);
+            $db->prepare('INSERT INTO push_devices(user_id,kind,address_hash,subscription,binding,updated_at) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id),subscription=VALUES(subscription),binding=VALUES(binding),updated_at=VALUES(updated_at)')->execute([$userId,$kind,$hash,$subscription,pushBinding(),time()]);
         });
         respond(['success'=>true]);
     }
