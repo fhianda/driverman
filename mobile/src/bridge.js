@@ -62,13 +62,13 @@ async function disablePush() {
   await PushNotifications.removeAllDeliveredNotifications();
 }
 let settings={},currentData=null,queue=null,queueOwner='',watcher=null,starting=null,activeId=null,segmentId=null;
-let notice='',syncNotice='',lastFix=null,lastLocation=null,enabled=false;
+let trackingError='',syncNotice='',lastLocation=null,enabled=false;
 const escaped=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const saveSettings=()=>SecureStorage.set('driverman-session',settings,false);
 const snapshotKey=()=>`driverman-snapshot:${settings.server}|${settings.userId}`;
 const currentDriverTrip=()=>currentData?.user.role==='driver' ? currentData.movements.find(m=>!m.end_at && m.driver_id===currentData.user.driver_id) : null;
 const pause=async()=>{
-  const id=watcher;watcher=null;activeId=null;lastFix=null;lastLocation=null;
+  const id=watcher;watcher=null;activeId=null;lastLocation=null;
   if (id) await GPS.removeWatcher({id});
   render();
 };
@@ -196,7 +196,7 @@ async function onData(data) {
   currentData=data;
   if(data.user.role==='admin'&&pushConfigured&&await SecureStorage.get(pushKey(),false)===true) enablePush({prompt:false}).catch(()=>{});
   if(data.user.role!=='driver') {
-    enabled=false;await pause();queue=null;queueOwner='';notice='';syncNotice='';
+    enabled=false;await pause();queue=null;queueOwner='';trackingError='';syncNotice='';
     await SecureStorage.remove(snapshotKey(),false);
     render();return;
   }
@@ -207,7 +207,7 @@ async function onData(data) {
   }
   const owner=`${settings.server}|${data.user.id}`;
   if(queueOwner!==owner) {
-    await pause();queueOwner=owner;notice='';syncNotice='';
+    await pause();queueOwner=owner;trackingError='';syncNotice='';
     const key=`driverman-positions:${owner}`;
     queue=new PositionQueue({read:()=>SecureStorage.get(key,false),write:points=>SecureStorage.set(key,points,false),send:(id,points)=>raw('save-positions',{movement_id:id,points})});
     await queue.load();
@@ -216,14 +216,14 @@ async function onData(data) {
   const current=currentDriverTrip();
   if(activeId && activeId!==current?.id) await pause();
   if(enabled && current) await start();
-  if(!current) {await pause();notice=enabled?'Suivi autorisé. Il démarrera à votre prochaine course.':'Suivi désactivé.';}
+  if(!current) {trackingError='';await pause();}
   flush();render();
 }
 
 async function flush() {
   if(!queue||!settings.token||currentData?.user.role!=='driver') return;
   try {
-    await queue.flush(async id=>{if(activeId===id) {await pause();notice='La course a été clôturée. Le suivi est arrêté.';}});
+    await queue.flush(async id=>{if(activeId===id) await pause();});
     syncNotice='';
   } catch(error) {
     syncNotice=error.status===401?'Connexion expirée : reconnectez-vous pour synchroniser les points conservés.':'Synchronisation en attente. Les points restent sur ce téléphone.';
@@ -239,26 +239,26 @@ function start() {
     if(!enabled||!movement||watcher||!queue) return;
     activeId=movement.id;segmentId=crypto.randomUUID();
     const trip=activeId;let segment=segmentId;
-    const next=queue.nextSampleAt(trip);
-    notice=next!==null && Date.now()<next ? 'Suivi actif : prochain relevé à l’échéance des 15 secondes.' : 'Recherche du premier point GPS de la course…';
+    trackingError='';
     try {
       // Le service natif continue écran verrouillé. Aucun minuteur de page web.
       // Sans filtre de distance, un véhicule immobile reste relevé toutes les 15 secondes.
       const id=await GPS.addWatcher({backgroundTitle:'DriverMan · Suivi de votre course',backgroundMessage:'Trajet GPS enregistré toutes les 15 secondes. Ouvrez DriverMan pour arrêter le suivi.',requestPermissions:true,stale:false,distanceFilter:0},async(location,error)=>{
         if(!enabled||activeId!==trip) return;
-        if(error) {notice='GPS indisponible ou autorisation insuffisante. Vérifiez la position précise et les autorisations de localisation.';render();return;}
+        if(error) {trackingError='La position est indisponible. Vérifiez les autorisations GPS.';render();return;}
         try {
+          trackingError='';
           if(queue.isUsable(location) && (!lastLocation || location.time>lastLocation.time)) {
             if(lastLocation && location.time-lastLocation.time>60000) {segment=crypto.randomUUID();segmentId=segment;}
             lastLocation={...location};
           }
-          if(await queue.add(location,trip,segment)) {lastFix={time:location.time,accuracy:location.accuracy};notice='Trajet enregistré : une position toutes les 15 secondes.';await flush();}
-          else if(queue.nextSampleAt(trip)===null || Date.now()>=queue.nextSampleAt(trip)) {notice='Recherche d’un point récent avec une précision de 50 m ou mieux.';render();}
-        } catch(error) {notice=error.message;await pause();}
+          if(await queue.add(location,trip,segment)) await flush();
+          else render();
+        } catch(error) {trackingError=error.message;await pause();}
       });
       if(!enabled||activeId!==trip) await GPS.removeWatcher({id});
       else watcher=id;
-    } catch(error) {activeId=null;notice=`Suivi non démarré : ${error.message}`;}
+    } catch(error) {activeId=null;trackingError=`Le suivi n’a pas pu démarrer : ${error.message}`;}
     render();
   })().finally(()=>{starting=null;});
   return starting;
@@ -267,13 +267,35 @@ function start() {
 function render() {
   const main=document.querySelector('#main-content');
   if(!main||!currentData) return;
-  let panel=main.querySelector('.mobile-tracking');
-  if(!panel){panel=document.createElement('section');panel.className='mobile-tracking';main.prepend(panel);}
-  if(currentData.user.role==='admin') {
-    panel.innerHTML='<strong>Espace administrateur mobile</strong><p>Gérez les véhicules, les chauffeurs et les comptes, consultez les courses et leurs itinéraires, puis partagez vos rapports PDF ou Excel. Les trajets sont relevés par les téléphones des chauffeurs.</p>';
-    return;
+  // Le suivi travaille en arrière-plan ; ses réglages restent dans le menu.
+  main.querySelector('.mobile-tracking')?.remove();
+  const driver=currentData.user.role==='driver';
+  const nav=document.querySelector('.sidebar nav');
+  const entry=nav?.querySelector('[data-mobile-tracking]');
+  if(driver && nav && !entry) {
+    const button=document.createElement('button');
+    button.type='button';button.className='nav-link mobile-tracking-link';
+    button.setAttribute('data-mobile-tracking','');
+    button.innerHTML=`${icon('pin')}<span>Suivi du trajet</span>`;
+    nav.append(button);
+  } else if(!driver) {
+    entry?.remove();
   }
-  panel.innerHTML=`<strong>Itinéraire automatique · départ → retour</strong>${currentData.native_offline?'<p>Hors réseau : affichage des dernières données reçues. Seul le relevé GPS de la dernière course connue peut continuer ; les autres enregistrements nécessitent le serveur.</p>':''}<p>${escaped(notice||'Activez une fois le suivi : DriverMan enregistre un premier point au départ, puis une position toutes les 15 secondes et le dernier point disponible au retour, même écran verrouillé. Aucun suivi hors course.')}</p>${lastFix?`<p>Dernier relevé : ${escaped(new Date(lastFix.time).toLocaleTimeString('fr-FR'))} · ± ${Math.ceil(lastFix.accuracy)} m.</p>`:''}${activeId && queue?.nextSampleAt(activeId) ? `<p>Prochain relevé à partir de ${escaped(new Date(queue.nextSampleAt(activeId)).toLocaleTimeString('fr-FR'))}.</p>` : ''}<p>${queue?.points.length||0} point(s) à synchroniser. ${escaped(syncNotice)}</p><button class="btn secondary" type="button" data-mobile-toggle>${enabled?'Désactiver le suivi':'Activer le suivi pendant mes courses'}</button><button class="btn secondary" type="button" data-mobile-sync>Synchroniser</button><button class="text-button" type="button" data-mobile-settings>Autorisations GPS</button><p>Gardez ce téléphone dans le véhicule. Autorisez la position précise, la localisation en arrière-plan et les notifications. Ne forcez pas l’arrêt de l’application. Au retour, ouvrez « Itinéraire » pour voir le tracé.</p>`;
+  const panel=document.querySelector('#mobile-tracking-settings');
+  if(!panel) return;
+  if(!driver) {panel.closest('dialog')?.close();panel.remove();return;}
+  panel.querySelector('[data-mobile-status]').textContent=enabled ? (watcher?'Enregistrement en cours':'Activé pendant les courses') : 'Désactivé';
+  const toggle=panel.querySelector('[data-mobile-toggle]');
+  toggle.textContent=enabled?'Désactiver le suivi':'Activer le suivi';
+  toggle.setAttribute('aria-pressed',String(enabled));
+  panel.querySelector('[data-mobile-feedback]').textContent=trackingError||syncNotice;
+}
+
+function openTrackingSettings() {
+  if(currentData?.user.role!=='driver') return;
+  document.querySelector('.sidebar-overlay')?.click();
+  openModal('Suivi du trajet','Enregistrez votre itinéraire pendant vos courses.',`<section id="mobile-tracking-settings" class="mobile-tracking-settings"><p class="mobile-tracking-status" data-mobile-status role="status"></p><p>Le suivi s’arrête à la fin de la course. Vous pouvez le désactiver à tout moment.</p><button class="btn primary" type="button" data-mobile-toggle></button><p data-mobile-feedback role="status"></p><details><summary>Options</summary><div class="mobile-tracking-options"><button class="btn secondary" type="button" data-mobile-settings>Autorisations GPS</button><button class="btn secondary" type="button" data-mobile-sync>Synchroniser maintenant</button></div></details></section><div class="modal-actions"><button type="button" class="btn secondary" data-action="close">Fermer</button></div>`);
+  render();
 }
 
 function loginRendered() {
@@ -287,6 +309,7 @@ function loginRendered() {
 document.addEventListener('click',async event=>{
   try {
     if(event.target.closest('[data-mobile-server]')&&!settings.token) {await configure();await boot();}
+    if(event.target.closest('[data-mobile-tracking]')) openTrackingSettings();
     if(event.target.closest('a[href="api.php?action=export"]')) {
       event.preventDefault();
       const data=await raw('export',undefined,{responseType:'text'});
@@ -295,18 +318,18 @@ document.addEventListener('click',async event=>{
     }
     if(event.target.closest('[data-mobile-toggle]')) {
       if(currentData?.user.role!=='driver') throw new Error('Le suivi GPS des courses est réservé au compte chauffeur.');
+      trackingError='';
       enabled=!enabled;
       if(enabled&&Capacitor.getPlatform()==='android') {
         const permission=await LocalNotifications.requestPermissions();
         if(permission.display!=='granted') {enabled=false;throw new Error('Autorisez les notifications pour rendre le suivi GPS visible.');}
       }
       await SecureStorage.set(`driverman-gps:${queueOwner}`,enabled,false);
-      notice=enabled?'Suivi autorisé. Il démarre lorsqu’une course est en cours.':'Suivi désactivé. Les points déjà enregistrés restent conservés.';
       if(enabled) await start();else await pause();render();
     }
     if(event.target.closest('[data-mobile-sync]')) await flush();
     if(event.target.closest('[data-mobile-settings]')) await GPS.openSettings();
-  } catch(error) {notice=error.message;render();}
+  } catch(error) {trackingError=error.message;render();}
 });
 
 const geolocation={
@@ -323,7 +346,7 @@ const geolocation={
 };
 
 App.addListener('appStateChange',async({isActive})=>{
-  if(isActive&&settings.token) {try {await loadData();}catch(error){notice=error.message;render();}await flush();}
+  if(isActive&&settings.token) {try {await loadData();}catch(error){trackingError=error.message;render();}await flush();}
 });
 window.addEventListener('online',()=>flush());
 async function saveFile(path,data) {

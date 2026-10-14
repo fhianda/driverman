@@ -14,11 +14,14 @@
 .route-preview-note {border-left:3px solid #f6a367;padding:8px 12px;background:#45392b;font-size:12px;line-height:1.6;}
 .route-empty {padding:16px 0;line-height:1.65;}
 #route-content [hidden] {display:none;}
-.mobile-tracking {margin:0 0 20px;padding:16px;border:1px solid #5a6475;border-radius:12px;background:#212a36;color:#dce5ef;}
-.mobile-tracking p {margin:8px 0;font-size:12px;line-height:1.6;}
-.mobile-tracking h2 {margin:0;font-size:17px;}
+.mobile-tracking-link {width:100%;text-align:left;}
+.mobile-tracking-settings p {margin:12px 0;font-size:14px;line-height:1.6;}
+.mobile-tracking-status {font-weight:700;color:var(--accent);}
+.mobile-tracking-settings [data-mobile-feedback]:empty {display:none;}
+.mobile-tracking-settings details {margin-top:24px;}
+.mobile-tracking-settings summary {cursor:pointer;}
+.mobile-tracking-options {display:flex;flex-wrap:wrap;gap:12px;margin-top:16px;}
 .mobile-server-url {overflow-wrap:anywhere;}
-.mobile-tracking .btn {margin:6px 8px 0 0;}
 .mobile-setup {max-width:440px;margin:8vh auto;padding:26px;color:#e4edf7;}
 .mobile-setup input {display:block;width:100%;padding:12px;margin:12px 0;color:#182231;background:#fff;border-radius:8px;}
 .mobile-setup button {margin-top:16px;}

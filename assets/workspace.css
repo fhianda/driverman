@@ -257,7 +257,13 @@ body {display: flow-root; min-height: 100svh; background: var(--canvas);}
   .workspace-label {padding-top: 8px; margin-bottom: 20px;}
   .sidebar-bottom {padding-top: 14px;}
   .main-shell {margin: 0;}
-  .topbar {height: 63px; padding-inline: 21px; background: #181b22;}
+  .topbar {position: sticky; top: 0; z-index: 18; min-height: 64px; height: auto; padding: 8px 16px; gap: 12px; background: #181b22;}
+  .topbar .breadcrumb {min-width: 0; gap: 8px;}
+  .topbar .breadcrumb strong {overflow: hidden; text-overflow: ellipsis; white-space: nowrap;}
+  .topbar .mobile-menu {width: 48px; height: 48px; margin: 0; color: var(--ink); border: 1px solid var(--line); background: var(--panel);}
+  .topbar .mobile-menu .icon {width: 24px; height: 24px;}
+  .topbar-right {flex-shrink: 0;}
+  .topbar .local-status {display: none;}
   .workspace #main-content {padding: 20px 18px;}
   .page-heading {display: flex; flex-direction: column; gap: 0; padding: 0; min-height: 0; margin-bottom: 22px; border-radius: 12px 0 0 0;}
   .workspace-hero {position: relative; width: 100%; height: 145px; flex-shrink: 0; opacity: 1;}
