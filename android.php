@@ -57,7 +57,7 @@ $asset = static fn(string $file): string => 'assets/' . $file . '?v=' . substr(h
           <li><strong>Confirmez sur Android</strong><p>Si Android le demande, autorisez l’installation depuis le navigateur ou l’application qui ouvre ce fichier, puis touchez « Installer ».</p></li>
           <li><strong>Connectez-vous à DriverMan</strong><p>Ouvrez l’application et utilisez vos identifiants habituels. Votre compte détermine automatiquement votre espace.</p></li>
         </ol>
-        <div class="gps-note"><h3>Pour le suivi des courses</h3><p>Avec le compte chauffeur, activez « Suivi pendant mes courses » et autorisez la position précise ainsi que les notifications. Le suivi est prévu pour continuer écran verrouillé.</p></div>
+        <div class="gps-note"><h3>Pour le suivi des courses</h3><p>Avec le compte chauffeur, ouvrez « Menu → Suivi du trajet », puis activez le suivi. Autorisez la position précise ainsi que les notifications. Le suivi est prévu pour continuer écran verrouillé.</p></div>
         <p class="iphone-note"><strong>Vous utilisez un iPhone ?</strong> Ouvrez <a href="./">l’application web</a> dans Safari, puis choisissez « Partager → Sur l’écran d’accueil ». Le fichier APK est réservé à Android.</p>
       </section>
     </main>
