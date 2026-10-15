@@ -1,7 +1,7 @@
 'use strict';
 
 const DriverManTracking = (() => {
-  let map, current=null;
+  let map, tileLayer, current=null;
   const segments = points => DriverManRoute.split([points]).map(line=>line.map(p=>[p.latitude,p.longitude]));
   const stamp = value => Number.isFinite(value) ? new Date(value).toLocaleString('fr-FR') : 'Horaire non fourni';
 
@@ -17,18 +17,20 @@ const DriverManTracking = (() => {
       return;
     }
     const summary=DriverManRoute.stats(parts),points=parts.flat();
-    target.innerHTML=`${preview?'<p class="route-preview-note">Aperçu du fichier · pas encore rattaché à la course</p>':''}<div class="route-summary"><span><strong>${number(summary.count)}</strong> positions</span><span><strong>${(summary.meters/1000).toLocaleString('fr-FR',{maximumFractionDigits:2})} km</strong> entre relevés</span><span><strong>${summary.parts}</strong> segment${summary.parts>1?'s':''}</span></div><p class="field-hint">${esc(route.name)} · ${esc(stamp(points[0].recorded_at))} → ${esc(stamp(points[points.length-1].recorded_at))}</p>${summary.timed!==summary.count?'<p class="route-preview-note">Ce tracé comporte des positions sans horaires. Leur passage pendant cette course ne peut pas être vérifié.</p>':''}<div id="route-map" class="route-map" aria-label="Carte des positions de la course"></div><p class="field-hint">Vert : premier point. Orange : dernier point. Les lignes relient les relevés, sans calcul routier. Les interruptions prolongées et les sauts GPS restent séparés. La distance ne remplace pas le compteur.</p><p id="route-map-status" role="status"></p>${preview?'':`<div class="route-tools"><button type="button" class="btn primary" data-route-export="html">Générer la carte</button><button type="button" class="btn secondary" data-route-export="gpx">Exporter GPX</button><button type="button" class="btn secondary" data-route-export="kml">Exporter KML</button></div><p class="field-hint">La carte téléchargée s’ouvre dans un navigateur et s’imprime en PDF. Son fond de carte nécessite Internet.</p>`}`;
-    map=L.map(target.querySelector('#route-map'));
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'}).addTo(map).on('tileerror',()=>{
+    target.innerHTML=`${preview?'<p class="route-preview-note">Aperçu du fichier · pas encore rattaché à la course</p>':''}<div class="route-summary"><span><strong>${number(summary.count)}</strong> positions</span><span><strong>${(summary.meters/1000).toLocaleString('fr-FR',{maximumFractionDigits:2})} km</strong> entre relevés</span><span><strong>${summary.parts}</strong> segment${summary.parts>1?'s':''}</span></div><p class="field-hint">${esc(route.name)} · ${esc(stamp(points[0].recorded_at))} → ${esc(stamp(points[points.length-1].recorded_at))}</p>${summary.timed!==summary.count?'<p class="route-preview-note">Ce tracé comporte des positions sans horaires. Leur passage pendant cette course ne peut pas être vérifié.</p>':''}<div id="route-map" class="route-map" aria-label="Carte des positions de la course"></div><p class="field-hint">Vert : premier point. Orange : dernier point. Trait plein : relevés GPS reliés. Pointillés bleus : liaison indicative entre deux segments, sans trajet enregistré. Ces lignes ne calculent pas les rues empruntées.</p><p id="route-map-status" role="status"></p>${preview?'':`<div class="route-tools"><button type="button" class="btn primary" data-route-export="pdf">Télécharger PDF</button><button type="button" class="btn secondary" data-route-export="jpeg">Télécharger JPEG</button><button type="button" class="btn secondary" data-route-export="gpx">Exporter GPX</button><button type="button" class="btn secondary" data-route-export="kml">Exporter KML</button></div><p class="field-hint">Le PDF et le JPEG reprennent la carte affichée. Cadrez le trajet avant de télécharger.</p>`}`;
+    map=L.map(target.querySelector('#route-map'),{zoomAnimation:false,fadeAnimation:false});
+    tileLayer=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,crossOrigin:true,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'}).addTo(map).on('tileerror',event=>{
+      event.tile.dataset.mapError='true';
       if(target.isConnected) target.querySelector('#route-map-status').textContent='Fond de carte indisponible. Les positions restent affichées ; les tuiles nécessitent Internet.';
     });
-    const coordinates=[];
-    const anchor=points[0].longitude;
-    for(const part of parts) {
-      const coords=part.map(p=>{let lon=p.longitude;while(lon-anchor>180)lon-=360;while(lon-anchor< -180)lon+=360;return[p.latitude,lon];});
-      for(const coord of coords) coordinates.push(coord);
-      if(coords.length>1) L.polyline(coords,{color:'#ef7c44',weight:4}).addTo(map);
-      else L.circleMarker(coords[0],{radius:4,color:'#ef7c44'}).addTo(map);
+    const lines=DriverManRoute.coordinates(parts),coordinates=lines.flat();
+    for(const gap of DriverManRoute.connections(lines)) {
+      L.polyline(gap,{color:'#365c85',weight:3,dashArray:'8 8',className:'route-gap'})
+        .addTo(map).bindTooltip('Liaison indicative · trajet non enregistré');
+    }
+    for(const coords of lines) {
+      if(coords.length>1) L.polyline(coords,{color:'#d65b22',weight:4}).addTo(map);
+      else L.circleMarker(coords[0],{radius:4,color:'#d65b22'}).addTo(map);
     }
     L.circleMarker(coordinates[0],{radius:8,color:'#15803d',fillOpacity:1}).addTo(map).bindTooltip('Premier point relevé');
     L.circleMarker(coordinates[coordinates.length-1],{radius:6,color:'#c2410c',fillOpacity:1}).addTo(map).bindTooltip(context.movement.end_at?'Dernier point relevé':'Dernière position reçue');
@@ -57,20 +59,28 @@ const DriverManTracking = (() => {
   async function download(format,button) {
     const context=current;
     if(!context?.selected || !context.parts.length) return;
-    button.disabled=true;
+    if(context.exporting)return;
+    context.exporting=true;
+    context.container.querySelectorAll('[data-route-export]').forEach(el=>el.disabled=true);
+    const {movement,parts,selected}=context;
+    const selectedMap=map;
+    const isCurrent=()=>current===context && context.selected===selected && map===selectedMap && context.container.isConnected;
     try {
-      const {movement,parts,selected}=context;
       const name=`${movement.plate} · ${movement.destination} · ${selected.name}`;
-      const content=format==='html'?DriverManRoute.html(parts,movement,selected.name):DriverManRoute[format](parts,name);
+      if(!['pdf','jpeg','gpx','kml'].includes(format))return;
+      const content=['pdf','jpeg'].includes(format)
+        ?await DriverManMapExport.file(format,selectedMap,tileLayer,parts,movement,selected.name,isCurrent)
+        :DriverManRoute[format](parts,name);
+      if(!isCurrent())return;
       const filename=`itineraire-${movement.id}-${movement.plate.replace(/[^a-z0-9_-]/gi,'_')}.${format}`;
       if(window.DriverManMobile) await window.DriverManMobile.saveFile(filename,content);
       else {
-        const mime={html:'text/html;charset=utf-8',gpx:'application/gpx+xml',kml:'application/vnd.google-earth.kml+xml'}[format];
+        const mime={pdf:'application/pdf',jpeg:'image/jpeg',gpx:'application/gpx+xml',kml:'application/vnd.google-earth.kml+xml'}[format];
         const url=URL.createObjectURL(new Blob([content],{type:mime}));
         const link=document.createElement('a');link.href=url;link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
       }
-      toast(format==='html'?'Carte générée. Ouvrez le fichier pour la consulter ou l’imprimer en PDF.':'Fichier GPS généré.');
-    } catch(error) {toast(error.message);} finally {button.disabled=false;}
+      toast(['pdf','jpeg'].includes(format)?`Carte ${format.toUpperCase()} générée.`:'Fichier GPS généré.');
+    } catch(error) {toast(error.message);} finally {context.exporting=false;context.container.querySelectorAll('[data-route-export]').forEach(el=>el.disabled=false);}
   }
 
   document.addEventListener('change',async event=>{

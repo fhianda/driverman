@@ -29,7 +29,7 @@ const local=offset=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Africa/Lagos',yea
 await call('depart',{driver_id:1,vehicle_id:1,destination:'Trajet fictif de vérification',purpose:'Mission de service',start_at:local(-20),expected_return:'',start_km:1000,notes:'Données synthétiques de test'});
 await call('create-user',{role:'driver',driver_id:1,email:'qa-driver@example.invalid',password:'Local-Preview-Only-2026'});
 await call('login',{email:'qa-driver@example.invalid',password:'Local-Preview-Only-2026'});await call('bootstrap');
-await call('save-positions',{movement_id:1,points:Array.from({length:8},(_,i)=>({sample_id:crypto.randomUUID(),segment_id:'11111111-1111-4111-8111-111111111111',recorded_at:Date.now()-600000+i*10000,latitude:-4.325+i*.0003,longitude:15.322+i*.0005,accuracy:8}))});
+await call('save-positions',{movement_id:1,points:Array.from({length:8},(_,i)=>({sample_id:crypto.randomUUID(),segment_id:i<4?'11111111-1111-4111-8111-111111111111':'22222222-2222-4222-8222-222222222222',recorded_at:Date.now()-600000+i*60000,latitude:i<4?-4.325+i*.0003:-4.373+(i-4)*.0003,longitude:i<4?15.322+i*.0005:15.294+(i-4)*.0005,accuracy:8}))});
 await call('return',{id:1,end_at:local(0),end_km:1005});
 console.log(`Serveur de vérification : ${base}`);
 await new Promise(()=>{});

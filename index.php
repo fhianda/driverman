@@ -43,6 +43,7 @@ ob_start(static function (string $html): string {
   <script src="assets/geo.js" defer></script>
   <script src="assets/vendor/leaflet.js" defer></script>
   <script src="assets/route-files.js" defer></script>
+  <script src="assets/route-map-export.js" defer></script>
   <script src="assets/tracking.js" defer></script>
   <script src="assets/fuel-ui.js" defer></script>
   <script src="assets/report-metrics.js" defer></script>
