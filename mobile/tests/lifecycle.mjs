@@ -5,14 +5,14 @@ import {PositionQueue} from '../src/queue.js';
 import {DepartureGps} from '../src/departure-gps.js';
 const stored=new Map([
   ['driverman-session',{server:'https://driver.example.invalid/',token:'test',userId:7}],
-  ['driverman-gps:https://driver.example.invalid/|7',true],
+  ['driverman-gps:https://driver.example.invalid/|7',false],
 ]);
 let watches=new Map(),serial=0,offline=true,saved=[],returned=0,shared=[],requests=[];
 const secure={get:async key=>structuredClone(stored.get(key)),set:async(key,value)=>stored.set(key,structuredClone(value)),remove:async key=>stored.delete(key),setSynchronize:async()=>{},setDefaultKeychainAccess:async()=>{}};
 const gps={addWatcher:async(opts,callback)=>{assert.ok(opts.backgroundMessage);assert.equal(opts.distanceFilter,0,'La collecte ne dépend pas du déplacement du véhicule.');const id=String(++serial);watches.set(id,callback);return id;},removeWatcher:async({id})=>{watches.delete(id);}};
 const window={addEventListener(){}};
 const context=vm.createContext({
-  Capacitor:{isNativePlatform:()=>true,getPlatform:()=> 'android'},registerPlugin:name=>name==='TripGps'?{status:async()=>({precise:true,background:true,locationEnabled:true})}:gps,SecureStorage:secure,KeychainAccess:{},PositionQueue,DepartureGps,
+  Capacitor:{isNativePlatform:()=>true,getPlatform:()=> 'android'},registerPlugin:name=>name==='TripGps'?{status:async()=>({precise:true,background:false,locationEnabled:true})}:gps,SecureStorage:secure,KeychainAccess:{},PositionQueue,DepartureGps,
   CapacitorHttp:{request:async request=>{
     requests.push(request);
     const action=new URL(request.url).searchParams.get('action');
@@ -24,7 +24,7 @@ const context=vm.createContext({
     throw Error(`Unexpected action: ${action}`);
   }},
   App:{addListener(){}},LocalNotifications:{checkPermissions:async()=>({display:'granted'})},Filesystem:{writeFile:async file=>{shared.push(file);return{uri:'file:///cache/'+file.path};}},Directory:{Cache:'CACHE'},Encoding:{UTF8:'utf8'},Share:{share:async file=>shared.push(file)},
-  document:{querySelector:()=>null,addEventListener(){}},window,crypto,URL,URLSearchParams,FormData,Blob,ArrayBuffer,Uint8Array,btoa,Date,console,
+  document:{querySelector:()=>null,addEventListener(){}},window,crypto,URL,URLSearchParams,FormData,Blob,ArrayBuffer,Uint8Array,btoa,Date,console,setTimeout,clearTimeout,
 });
 const source=(await readFile(new URL('../src/bridge.js',import.meta.url),'utf8')).replace(/^import .*;\r?\n/gm,'');
 vm.runInContext(source,context);const mobile=window.DriverManMobile;await mobile.ready;
@@ -82,10 +82,13 @@ await mobile.onData({...data,movements:[]});
 const requestsBefore=requests.length;
 await assert.rejects(mobile.call('depart',{vehicle_id:1}),/GPS doit être prêt/);
 assert.equal(requests.length,requestsBefore,'Aucun départ réseau sans étape GPS validée.');
-await vm.runInContext('departureGps.begin()',context);
+const departureForm={isConnected:true,querySelector:()=>({textContent:''})};
+const preparing=mobile.departure.prepare(departureForm);
+await new Promise(resolve=>setTimeout(resolve,0));
 assert.equal(watches.size,1);
 const preparedWatch=watches.keys().next().value;
 await watches.get(preparedWatch)({latitude:-4.325,longitude:15.322,accuracy:8,time:Date.now()});
+await preparing;
 await mobile.call('depart',{vehicle_id:1,start_at:'2026-10-15T10:00',start_km:100});
 assert.equal(watches.has(preparedWatch),true,'Le même service GPS continue sans coupure au départ.');
 const departure=requests.findLast(r=>new URL(r.url).searchParams.get('action')==='depart');

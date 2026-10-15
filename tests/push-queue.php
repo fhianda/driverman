@@ -21,13 +21,13 @@ try {
     drainPushJobs($db,5,$success);check($called===0,'Backoff respecté');
     $db->exec('UPDATE push_jobs SET next_at=0');drainPushJobs($db,5,$success);drainPushJobs($db,5,$success);check($called===1,'Envoi non répété après succès');
     transaction($db,fn()=>recordNotification($db,'departure',102,'Départ','Test'));
-    $db->exec("UPDATE notification_preferences SET mode='off' WHERE user_id=1 AND event='departure'");
-    drainPushJobs($db,5,$success);check($called===1,'Désactivation respectée avant envoi');
+    $db->exec("INSERT INTO notification_preferences(user_id,event,mode) VALUES(1,'departure','off') ON DUPLICATE KEY UPDATE mode='off'");
+    drainPushJobs($db,5,$success);check($called===2,'Une ancienne préférence off ne bloque plus les alertes automatiques');
     $db->exec("UPDATE notification_preferences SET mode='both' WHERE user_id=1 AND event='departure'");
     transaction($db,fn()=>recordNotification($db,'departure',103,'Départ','Test'));
-    $db->exec("UPDATE notifications SET created_at=0 WHERE source_id=103");drainPushJobs($db,5,$success);check($called===1,'Pas d’alerte ancienne');
+    $db->exec("UPDATE notifications SET created_at=0 WHERE source_id=103");drainPushJobs($db,5,$success);check($called===2,'Pas d’alerte ancienne');
     transaction($db,fn()=>recordNotification($db,'departure',104,'Départ','Test'));
-    $db->exec('UPDATE push_devices SET user_id=2');drainPushJobs($db,5,$success);check($called===1,'Changement de propriétaire respecté');
+    $db->exec('UPDATE push_devices SET user_id=2');drainPushJobs($db,5,$success);check($called===2,'Changement de propriétaire respecté');
     $db->exec('UPDATE push_devices SET user_id=1');
     transaction($db,fn()=>recordNotification($db,'departure',105,'Départ','Test'));
     drainPushJobs($db,5,fn($job)=>['success'=>false,'expired'=>true,'error'=>'expired']);
@@ -43,5 +43,5 @@ try {
     $sender=new Minishlink\WebPush\WebPush(['VAPID'=>pushSecrets()['vapid']],[],3,['handler'=>$handler]);
     $sub=Minishlink\WebPush\Subscription::create(['endpoint'=>'https://web.push.apple.com/test','keys'=>['p256dh'=>$keys['publicKey'],'auth'=>rtrim(strtr(base64_encode(random_bytes(16)),'+/','-_'),'=')]]);
     check($sender->sendOneNotification($sub,'{"title":"Test"}')->isSuccess(),'Chiffrement Web Push réel, transport simulé');
-    echo "File d’envoi, préférences, isolation et chiffrement Web Push vérifiés.\n";
+    echo "File d’envoi automatique, isolation et chiffrement Web Push vérifiés.\n";
 } catch(Throwable $e) {fwrite(STDERR,$e->getMessage().PHP_EOL);exit(1);}

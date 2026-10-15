@@ -29,10 +29,10 @@ try {
   const password=randomBytes(24).toString('base64url');
   ok((await a.call('setup',{name:'Admin A',email:'a@example.invalid',password})).status===200,'Setup');await a.call('bootstrap');
   ok((await guest.call('notifications')).status===401,'Historique privé');
-  const initial=await a.call('notifications');ok(initial.preferences.departure==='off'&&initial.preferences.fuel==='off','Opt-in explicite');
+  const initial=await a.call('notifications');ok(initial.preferences.departure==='both'&&initial.preferences.fuel==='both','Alertes automatiques sans préférences enregistrées');
   ok(initial.delivery.web&&!initial.delivery.android&&!JSON.stringify(initial).includes('privateKey'),'Seule la clé publique est exposée');
-  ok((await a.call('save-notification-preferences',{departure:'both',fuel:'invalid'})).status===422,'Mode invalide refusé');
-  ok((await a.call('notifications')).preferences.departure==='off','Préférences atomiques');
+  ok((await a.call('save-notification-preferences',{departure:'both',fuel:'invalid'})).status===409,'Ancien écran de préférences retiré');
+  ok((await a.call('notifications')).preferences.departure==='both','Les alertes restent automatiques');
   const csrf=a.csrf;a.csrf='incorrect';
   ok((await a.call('save-notification-preferences',{departure:'both',fuel:'both'})).status===403,'Préférences protégées par CSRF');a.csrf=csrf;
   await a.call('save-notification-preferences',{departure:'both',fuel:'vibrate'});
@@ -49,14 +49,14 @@ try {
   ok((await driver.call('depart',departure)).status===200,'Départ enregistré');
   ok((await driver.call('depart',departure)).status===422,'Doublon métier refusé');
   let status=await a.call('notifications');ok(status.items.length===1&&status.unread===1&&status.items[0].body.includes('NOTIF-001'),'Une alerte pour le départ');
-  ok((await b.call('notifications')).items.length===0,'Admin B sans alertes de départ');
+  ok((await b.call('notifications')).items.length===1,'Admin B reçoit automatiquement le départ');
   const fuel={vehicle_id:1,filled_at:now,mileage:100,liters:'10',unit_price:'2',currency:'USD',full_tank:'0'};
   ok((await driver.call('save-refueling',fuel)).status===200,'Achat enregistré');
   ok((await driver.call('save-refueling',fuel)).status===409,'Doublon carburant refusé');
   status=await a.call('notifications');ok(status.items.length===2&&status.items[0].body.includes('20,00 USD'),'Deux alertes avec montant correct');
-  const bStatus=await b.call('notifications');ok(bStatus.items.length===1&&bStatus.items[0].event==='fuel','Choix indépendant par administrateur');
+  const bStatus=await b.call('notifications');ok(bStatus.items.length===2&&bStatus.items[0].event==='fuel','Les deux événements arrivent chez chaque administrateur');
   await a.call('read-notifications',{through:status.items[0].id});ok((await a.call('notifications')).unread===0,'Lecture persistée');
-  ok((await b.call('notifications')).unread===1,'Lecture ne modifie pas l’autre compte');
+  ok((await b.call('notifications')).unread===2,'Lecture ne modifie pas l’autre compte');
   const ecdh=createECDH('prime256v1');ecdh.generateKeys();
   const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/fake-test-token',keys:{p256dh:ecdh.getPublicKey().toString('base64url'),auth:randomBytes(16).toString('base64url')}};
   for(const endpoint of ['http://fcm.googleapis.com/a','https://127.0.0.1/a','https://fcm.googleapis.com.evil.invalid/a','https://fcm.googleapis.com:8443/a','https://user@fcm.googleapis.com/a'])ok((await a.call('subscribe-push',{kind:'web',subscription:{...subscription,endpoint}})).status===422,'Endpoint dangereux refusé');
@@ -69,7 +69,7 @@ try {
   ok((await a.call('subscribe-push',{kind:'android',token:'a'.repeat(30)})).status===503,'Android indisponible sans Firebase');
   await a.call('logout',{});await a.call('status');await a.call('login',{email:'a@example.invalid',password});await a.call('bootstrap');
   ok((await a.call('notifications')).devices.length===0,'Déconnexion supprime la réception');
-  ok((await a.call('notifications')).preferences.fuel==='vibrate','Préférences conservées après reconnexion');
+  ok((await a.call('notifications')).preferences.fuel==='both','Alertes automatiques après reconnexion');
   // Queue, retries and cryptography exercised without contacting any real push provider.
   const unit=spawnSync(php,['tests/push-queue.php'],{env,windowsHide:true});assert.equal(unit.status,0,unit.stdout.toString()+unit.stderr.toString());
   console.log(`${checks} contrôles API notifications réussis. ${unit.stdout.toString().trim()}`);

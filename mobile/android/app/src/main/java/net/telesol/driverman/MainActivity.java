@@ -44,7 +44,7 @@ public class MainActivity extends BridgeActivity {
                 boolean sound = mode[0].equals("sound") || mode[0].equals("both");
                 boolean vibrate = mode[0].equals("vibrate") || mode[0].equals("both");
                 NotificationChannel channel = new NotificationChannel("driverman_" + mode[0] + "_v1", "DriverMan · " + mode[1], mode[0].equals("silent") ? NotificationManager.IMPORTANCE_LOW : NotificationManager.IMPORTANCE_DEFAULT);
-                channel.setDescription("Alertes de départ et d’achat de carburant sélectionnées dans DriverMan.");
+                channel.setDescription("Alertes automatiques de départ et d’achat de carburant.");
                 channel.setSound(sound ? Settings.System.DEFAULT_NOTIFICATION_URI : null, new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
                 channel.enableVibration(vibrate);
                 if (vibrate) channel.setVibrationPattern(new long[]{0, 200, 100, 200});

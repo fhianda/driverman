@@ -4,7 +4,7 @@ Application Capacitor Android et iPhone pour les chauffeurs et les administrateu
 
 L’administrateur dispose aussi de **Comptes & accès → Nouvelle utilisation** pour réinitialiser le parc en gardant les comptes administrateurs. Le [guide principal](../README.md) décrit la confirmation et la sauvegarde préalable.
 
-La version 1.9 ajoute une étape GPS obligatoire à la création d’une course par le chauffeur sur Android. Le départ attend les autorisations de localisation précise, d’arrière-plan et de notifications, puis une position récente de précision annoncée de 50 m ou mieux. Le serveur enregistre ce premier point avec la course dans la même transaction. Les anciennes APK doivent être mises à jour pour créer une course chauffeur. Sur le web, **Mouvements → Itinéraire** et **Voir mon itinéraire** donnent accès à la carte et à son actualisation. Un départ administratif ne collecte pas la position de l’administrateur.
+La version 1.12 prépare le GPS au clic sur **Démarrer la course**, sans seconde étape ni autorisation « Toujours autoriser ». Android demande la position précise et les notifications si nécessaire ; si la localisation est éteinte, une demande système propose son activation. Un service de localisation au premier plan démarre pendant que le formulaire est visible, puis reste actif écran verrouillé jusqu’au retour. Le premier point est enregistré avec la course. Les administrateurs consultent les itinéraires sans collecter leur propre position.
 
 La version 1.8 intègre la configuration Firebase de DriverMan pour recevoir les alertes administrateur lorsque l’application est fermée normalement ou l’écran verrouillé. Chaque administrateur choisit les événements et active la réception sur son téléphone dans **Notifications**.
 
@@ -12,7 +12,7 @@ La version 1.7 place le formulaire de connexion avant l’image sur téléphone,
 
 La version 1.6 affiche les rubriques directement sous l’en-tête sur téléphone après connexion, selon les droits du compte. La page web de téléchargement conserve uniquement le nom de l’application, la version, la taille et le bouton de téléchargement.
 
-La version 1.5 retire les encarts techniques de l’accueil. Le chauffeur retrouve l’activation et l’arrêt du GPS dans **Menu → Suivi du trajet**, sans compteur de points ni journal de synchronisation sur ses pages. La collecte automatique et l’envoi des positions sont conservés.
+Les encarts techniques sont retirés de l’accueil. **Menu → Suivi du trajet** affiche uniquement l’état du suivi et permet de synchroniser ; aucune activation manuelle n’est nécessaire.
 
 Elle conserve la correction de la version 1.4 : l’espace des barres système et de l’encoche est réservé sur Android 15 et les versions suivantes. La version 1.7 complète les marges de Capacitor avec les insets du clavier dans `MainActivity`, sans les cumuler. Sur téléphone, le menu reste visible pendant le défilement et son bouton mesure 48 × 48 pixels CSS. Ne pas ajouter une seconde marge CSS fixe pour la barre système. Le livrable natif est l’[APK Android 1.9 de test](../downloads/DriverMan-Android-1.9.apk), versionCode 10, signé avec la même clé que la version 1.8 pour permettre la mise à jour.
 
@@ -85,7 +85,7 @@ Les descriptions françaises des autorisations GPS et photos, le mode de localis
 
 ## Utiliser et vérifier le GPS
 
-Choisir **Créer une course**, remplir les informations, puis **Continuer : GPS**. Cette seconde étape guide les autorisations et vérifie la localisation avant d’activer **Confirmer le départ**. Sur Android 11 et suivants, choisir **Localisation → Toujours autoriser** dans les réglages proposés. Le téléphone doit rester dans le véhicule. Annuler la création arrête le relevé préparatoire sans enregistrer de position. Pendant la course, le suivi reste actif jusqu’au retour ; le bouton de désactivation est indisponible. Le retour conserve le dernier point reçu (récent et précis), synchronise les positions puis arrête la collecte. Une position trop ancienne, simulée ou trop imprécise n’est jamais utilisée comme point de retour. DriverMan conserve le premier point GPS avec le départ, puis un point toutes les quinze secondes, y compris à l’arrêt. Si le signal est insuffisant à l’échéance, le prochain point précis est conservé dès qu’il est disponible. L’échéance reste mémorisée après synchronisation et redémarrage. La notification Android rend le suivi visible.
+Choisir **Créer une course**, remplir les informations, puis **Démarrer la course**. Accepter les demandes système initiales si elles apparaissent. Le départ attend une position récente de précision annoncée de 50 m ou mieux. Le même service GPS continue ensuite sans interruption jusqu’au retour, sans permission de localisation permanente. Un refus de permission ou un signal insuffisant bloque le départ avec un message ; réessayer utilise le même bouton. Un refus définitif imposé par Android doit être révoqué par l’utilisateur. Le téléphone doit rester dans le véhicule. DriverMan conserve un point toutes les quinze secondes et le dernier point récent et précis au retour. Un retour confirmé arrête la collecte.
 
 Seuls des points récents d’une précision annoncée de 50 m ou mieux sont conservés. La file chiffrée, isolée par serveur et compte, garde jusqu’à 10 000 points en attente. En cas de saturation, la collecte s’arrête sans effacer les points conservés. Les envois sont idempotents ; une panne réseau n’efface pas les points. Une course déjà chargée peut continuer hors réseau, mais un nouveau départ et la confirmation du retour nécessitent le serveur. Un retour refusé pour panne réseau réactive la collecte.
 
@@ -104,6 +104,6 @@ Les tests automatisés (`npm test` à la racine, `npm --prefix mobile test`) cou
 
 ## Alertes de l’administrateur
 
-Installer l’APK 1.8, se connecter comme administrateur, puis ouvrir **Notifications**. Choisir un mode pour **Départ d’une course** et/ou **Achat de carburant**, toucher **Enregistrer mes choix**, puis **Activer sur cet appareil** et autoriser les notifications Android. Les choix restent individuels ; une mise à jour n’abonne pas automatiquement tous les administrateurs. Les canaux son, vibration, son et vibration, et silencieux peuvent aussi être réglés dans les paramètres Android.
+Installer l’APK 1.12 et se connecter comme administrateur. Accepter la demande système de notification si nécessaire ; l’inscription de l’appareil est automatique. Les départs et achats sont envoyés avec son et vibration, sous réserve des réglages Android. Aucun formulaire de préférences ni activation séparée n’est nécessaire. Une permission refusée n’est jamais contournée.
 
 Le [guide des notifications](../docs/notifications.md) décrit la configuration Firebase et le traitement automatique sur Hostinger. La PWA iPhone utilise Web Push et ne nécessite pas de compte Apple Developer. La réception réelle, application fermée et écran verrouillé, reste à vérifier sur les téléphones utilisés.

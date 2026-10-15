@@ -13,6 +13,8 @@ const TripGps=registerPlugin('TripGps');
 const DEFAULT_SERVER='https://driverman.trackkintrans.com/';
 const pushConfigured=typeof __DRIVERMAN_PUSH_CONFIGURED__!=='undefined' && __DRIVERMAN_PUSH_CONFIGURED__ && Capacitor.getPlatform()==='android';
 let pushListeners=null,pushRegistration=null,pushResolve=null,pushReject=null;
+let pushAutoOwner='',pushAutoAfter=0;
+const pushPrompted=new Set();
 const pushKey=()=>`driverman-push:${settings.server}|${settings.userId}`;
 
 async function preparePush() {
@@ -44,16 +46,30 @@ async function enablePush({prompt=true}={}) {
   if(!pushConfigured)throw new Error('Le service Android de notifications doit encore être configuré.');
   if(currentData?.user.role!=='admin')throw new Error('Les alertes sont réservées aux administrateurs.');
   if(pushRegistration)return pushRegistration;
-  await preparePush();
-  let permission=await PushNotifications.checkPermissions();
-  if(permission.receive!=='granted'&&prompt)permission=await PushNotifications.requestPermissions();
-  if(permission.receive!=='granted')throw new Error('Autorisez les notifications DriverMan dans les réglages Android.');
-  pushRegistration=new Promise((resolve,reject)=>{
+  const account=pushKey();
+  pushRegistration=(async()=>{
+    await preparePush();
+    let permission=await PushNotifications.checkPermissions();
+    if(['prompt','prompt-with-rationale'].includes(permission.receive)&&prompt)permission=await PushNotifications.requestPermissions();
+    if(permission.receive!=='granted')throw new Error('L’autorisation Android de notification n’a pas été accordée.');
+    if(account!==pushKey()||currentData?.user.role!=='admin'||!settings.token)throw new Error('Session administrateur terminée.');
+    await new Promise((resolve,reject)=>{
     const timeout=setTimeout(()=>reject(new Error('Le service de notification ne répond pas. Réessayez.')),20000);
     pushResolve=()=>{clearTimeout(timeout);resolve();};pushReject=error=>{clearTimeout(timeout);reject(error);};
     PushNotifications.register().catch(pushReject);
-  }).finally(()=>{pushRegistration=null;pushResolve=null;pushReject=null;});
+    });
+  })().finally(()=>{pushRegistration=null;pushResolve=null;pushReject=null;});
   return pushRegistration;
+}
+
+async function automaticPush() {
+  if(!pushConfigured||currentData?.user.role!=='admin'||!settings.token)return;
+  const account=pushKey();
+  if(pushAutoOwner===account&&Date.now()<pushAutoAfter)return;
+  pushAutoOwner=account;pushAutoAfter=Date.now()+60000;
+  const prompt=!pushPrompted.has(account);pushPrompted.add(account);
+  try {await enablePush({prompt});if(account===pushKey())pushAutoAfter=Infinity;}
+  catch {} // History remains available if the OS permission or network is unavailable.
 }
 
 async function disablePush() {
@@ -78,28 +94,23 @@ const pause=async()=>{
   render();
 };
 
-function updateDeparture({message,action,ready}) {
+function updateDeparture({message}) {
   const form=departureForm;
   if(!form?.isConnected)return;
   form.querySelector('[data-gps-message]').textContent=message;
-  const retry=form.querySelector('[data-departure-gps]');
-  retry.dataset.departureGps=action;
-  retry.hidden=!action;
-  retry.textContent=({'background':'Autoriser le suivi écran verrouillé','app-settings':'Ouvrir les autorisations','location-settings':'Activer la localisation',retry:'Vérifier le GPS'})[action]||'Vérifier le GPS';
-  form.querySelector('[type="submit"]').disabled=!ready||departureSending;
 }
 
 function departureRequired() {return Capacitor.getPlatform()==='android'&&currentData?.user.role==='driver';}
 function departureStep() {
-  return '<section class="departure-gps" data-departure-step hidden><p class="eyebrow">ÉTAPE 2 SUR 2</p><h3>Activer le suivi GPS</h3><p>Votre parcours sera enregistré du départ au retour, même écran verrouillé, et visible dans DriverMan. La position précise et le suivi en arrière-plan sont nécessaires.</p><p class="departure-gps-status" data-gps-message role="status">Préparation du GPS…</p><button type="button" class="btn secondary" data-departure-gps="retry">Activer le GPS</button><button type="button" class="text-button" data-departure-back>Modifier la course</button></section>';
+  return '<section class="departure-gps" data-departure-step><p>Le trajet GPS sera enregistré automatiquement du départ au retour.</p><p class="departure-gps-status" data-gps-message role="status"></p></section>';
 }
 async function prepareDeparture(form) {
   departureForm=form;
-  form.querySelector('[data-trip-details]').hidden=true;
-  form.querySelector('[data-departure-step]').hidden=false;
-  form.dataset.gpsStep='true';
-  form.querySelector('[type="submit"]').innerHTML='Confirmer le départ';
-  await departureGps.begin({request:true});
+  try {
+    await departureGps.acquire();
+    if(!form.isConnected)throw new Error('Création de la course annulée.');
+  }
+  catch(error){departureForm=null;await departureGps.cancel();throw error;}
 }
 
 async function raw(action,data,{token=settings.token,responseType='json'}={}) {
@@ -180,6 +191,7 @@ async function call(action,data) {
     if(queue) await flush();
     await raw('logout',{});
     await disablePush().catch(()=>{});
+    pushAutoOwner='';pushAutoAfter=0;
     settings={server:settings.server};await saveSettings();currentData=null;queue=null;queueOwner='';
     return {success:true};
   }
@@ -199,7 +211,8 @@ async function call(action,data) {
       await queue.mutate(current=>({...current,lastRecordedAt:{...current.lastRecordedAt,[result.movement_id]:initial.recorded_at}})).catch(()=>{});
       departureForm=null;
       return result;
-    } finally {departureSending=false;}
+    } catch(error) {departureForm=null;await departureGps.cancel();throw error;}
+    finally {departureSending=false;}
   }
   if(action==='return' && currentData?.user.role==='driver') {
     // Retenir le dernier relevé récent même si les 15 secondes ne sont pas écoulées.
@@ -242,7 +255,7 @@ async function call(action,data) {
 
 async function onData(data) {
   currentData=data;
-  if(data.user.role==='admin'&&pushConfigured&&await SecureStorage.get(pushKey(),false)===true) enablePush({prompt:false}).catch(()=>{});
+  automaticPush();
   if(data.user.role!=='driver') {
     enabled=false;await pause();queue=null;queueOwner='';trackingError='';syncNotice='';
     await SecureStorage.remove(snapshotKey(),false);
@@ -259,7 +272,7 @@ async function onData(data) {
     const key=`driverman-positions:${owner}`;
     queue=new PositionQueue({read:()=>SecureStorage.get(key,false),write:points=>SecureStorage.set(key,points,false),send:(id,points)=>raw('save-positions',{movement_id:id,points})});
     await queue.load();
-    enabled=await SecureStorage.get(`driverman-gps:${owner}`,false)===true;
+    enabled=true;
   }
   const current=currentDriverTrip();
   if(activeId && activeId!==current?.id) await pause();
@@ -333,18 +346,14 @@ function render() {
   const panel=document.querySelector('#mobile-tracking-settings');
   if(!panel) return;
   if(!driver) {panel.closest('dialog')?.close();panel.remove();return;}
-  panel.querySelector('[data-mobile-status]').textContent=enabled ? (watcher?'Enregistrement en cours':'Activé pendant les courses') : 'Désactivé';
-  const toggle=panel.querySelector('[data-mobile-toggle]');
-  toggle.textContent=currentDriverTrip()&&watcher?'Actif jusqu’au retour':enabled?'Désactiver le suivi':'Activer le suivi';
-  toggle.disabled=Boolean(currentDriverTrip()&&watcher);
-  toggle.setAttribute('aria-pressed',String(enabled));
+  panel.querySelector('[data-mobile-status]').textContent=watcher?'Enregistrement en cours':'Démarrage automatique à la prochaine course';
   panel.querySelector('[data-mobile-feedback]').textContent=trackingError||syncNotice;
 }
 
 function openTrackingSettings() {
   if(currentData?.user.role!=='driver') return;
   document.querySelector('.sidebar-overlay')?.click();
-  openModal('Suivi du trajet','Enregistrez votre itinéraire pendant vos courses.',`<section id="mobile-tracking-settings" class="mobile-tracking-settings"><p class="mobile-tracking-status" data-mobile-status role="status"></p><p>Le GPS est activé pendant la création de votre course. Enregistrez votre retour pour arrêter le suivi.</p><button class="btn primary" type="button" data-mobile-toggle></button><p data-mobile-feedback role="status"></p><details><summary>Options</summary><div class="mobile-tracking-options"><button class="btn secondary" type="button" data-mobile-settings>Autorisations GPS</button><button class="btn secondary" type="button" data-mobile-sync>Synchroniser maintenant</button></div></details></section><div class="modal-actions"><button type="button" class="btn secondary" data-action="close">Fermer</button></div>`);
+  openModal('Suivi du trajet','Du départ au retour.',`<section id="mobile-tracking-settings" class="mobile-tracking-settings"><p class="mobile-tracking-status" data-mobile-status role="status"></p><p>Enregistrez votre retour pour arrêter le suivi.</p><p data-mobile-feedback role="status"></p><button class="btn secondary" type="button" data-mobile-sync>Synchroniser maintenant</button></section><div class="modal-actions"><button type="button" class="btn secondary" data-action="close">Fermer</button></div>`);
   render();
 }
 
@@ -354,24 +363,6 @@ function loginRendered() {
 
 document.addEventListener('click',async event=>{
   try {
-    const gpsAction=event.target.closest('[data-departure-gps]');
-    if(gpsAction&&departureForm) {
-      const action=gpsAction.dataset.departureGps;
-      if(action==='background') {
-        const granted=await TripGps.requestBackground();
-        if(granted?.background)await departureGps.begin();
-      }
-      else if(action==='app-settings')await TripGps.openAppSettings();
-      else if(action==='location-settings')await TripGps.openLocationSettings();
-      else await departureGps.begin({request:true});
-    }
-    if(event.target.closest('[data-departure-back]')&&!departureSending) {
-      await departureGps.cancel();
-      const form=departureForm;departureForm=null;
-      form.querySelector('[data-trip-details]').hidden=false;form.querySelector('[data-departure-step]').hidden=true;
-      delete form.dataset.gpsStep;
-      const submit=form.querySelector('[type="submit"]');submit.disabled=false;submit.innerHTML='Continuer : GPS';
-    }
     if(event.target.closest('[data-mobile-tracking]')) openTrackingSettings();
     if(event.target.closest('a[href="api.php?action=export"]')) {
       event.preventDefault();
@@ -379,20 +370,7 @@ document.addEventListener('click',async event=>{
       const file=await Filesystem.writeFile({path:'driverman-mes-mouvements.csv',data,directory:Directory.Cache,encoding:Encoding.UTF8});
       await Share.share({title:'Mes mouvements DriverMan',files:[file.uri]});
     }
-    if(event.target.closest('[data-mobile-toggle]')) {
-      if(currentData?.user.role!=='driver') throw new Error('Le suivi GPS des courses est réservé au compte chauffeur.');
-      if(currentDriverTrip()&&watcher)throw new Error('Enregistrez votre retour pour arrêter le suivi.');
-      trackingError='';
-      enabled=!enabled;
-      if(enabled&&Capacitor.getPlatform()==='android') {
-        const permission=await LocalNotifications.requestPermissions();
-        if(permission.display!=='granted') {enabled=false;throw new Error('Autorisez les notifications pour rendre le suivi GPS visible.');}
-      }
-      await SecureStorage.set(`driverman-gps:${queueOwner}`,enabled,false);
-      if(enabled) await start();else await pause();render();
-    }
     if(event.target.closest('[data-mobile-sync]')) await flush();
-    if(event.target.closest('[data-mobile-settings]')) await GPS.openSettings();
   } catch(error) {trackingError=error.message;render();}
 });
 
@@ -411,9 +389,9 @@ const geolocation={
 
 App.addListener('appStateChange',async({isActive})=>{
   if(isActive&&departureForm?.isConnected&&!departureSending) {
-    if(!departureGps.checking)await departureGps.begin();return;
+    return; // Permission/location dialogs must not restart the pending departure.
   }
-  if(isActive&&settings.token) {try {await loadData();}catch(error){trackingError=error.message;render();}await flush();}
+  if(isActive&&settings.token) {pushAutoAfter=0;try {await loadData();}catch(error){trackingError=error.message;render();}await flush();}
 });
 document.addEventListener('DOMContentLoaded',()=>document.querySelector('#modal')?.addEventListener('close',()=>{
   if(!departureSending){departureForm=null;departureGps.cancel().catch(()=>{});}

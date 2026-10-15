@@ -84,7 +84,7 @@ function drainPushJobs(PDO $db, int $limit=50, ?callable $transport=null): array
     $db->prepare('DELETE FROM notifications WHERE created_at<?')->execute([$now-90*86400]);
     for ($i=0;$i<$limit && microtime(true)<$deadline;$i++) {
         $job=transaction($db,function() use($db) {
-            $stmt=$db->prepare("SELECT j.*,n.user_id,n.event,n.title,n.body,n.created_at,d.kind,d.subscription,COALESCE(p.mode,'off') mode,u.role,d.user_id device_owner FROM push_jobs j JOIN notifications n ON n.id=j.notification_id JOIN push_devices d ON d.id=j.device_id LEFT JOIN notification_preferences p ON p.user_id=n.user_id AND p.event=n.event LEFT JOIN users u ON u.id=n.user_id WHERE j.state='pending' AND j.next_at<=? AND j.lease_until<=? ORDER BY j.id LIMIT 1");
+            $stmt=$db->prepare("SELECT j.*,n.user_id,n.event,n.title,n.body,n.created_at,d.kind,d.subscription,'both' mode,u.role,d.user_id device_owner FROM push_jobs j JOIN notifications n ON n.id=j.notification_id JOIN push_devices d ON d.id=j.device_id LEFT JOIN users u ON u.id=n.user_id WHERE j.state='pending' AND j.next_at<=? AND j.lease_until<=? ORDER BY j.id LIMIT 1");
             $stmt->execute([time(),time()]);$job=$stmt->fetch();
             if ($job) $db->prepare('UPDATE push_jobs SET lease_until=? WHERE id=?')->execute([time()+60,$job['id']]);
             return $job;

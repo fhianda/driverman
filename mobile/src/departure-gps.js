@@ -5,7 +5,20 @@ export class DepartureGps {
     this.session=null;
   }
   notify(session,message,action='retry') {
-    if(this.session===session) this.onChange({message,action,ready:Boolean(session.location&&this.isUsable(session.location))});
+    if(this.session!==session)return;
+    session.message=message;session.action=action;
+    const ready=Boolean(session.id&&session.location&&this.isUsable(session.location));
+    this.onChange({message,action,ready});
+    if(ready)session.resolve?.();
+    else if(action)session.reject?.(new Error(message));
+  }
+  async acquire() {
+    await this.begin({request:true});
+    const session=this.session;
+    if(!session)throw new Error(this.lastError||'Préparation du GPS annulée.');
+    if(session.action&&!session.location)throw new Error(session.message);
+    if(!session.location)await new Promise((resolve,reject)=>{session.resolve=resolve;session.reject=reject;});
+    return this.verify();
   }
   async begin({request=false}={}) {
     await this.cancel();
@@ -16,17 +29,22 @@ export class DepartureGps {
       let status=await this.permissions.status();
       if(!status.precise&&request) status=await this.permissions.requestForeground();
       if(this.session!==session)return;
-      if(!status.precise) {this.notify(session,'Autorisez la position précise pour enregistrer votre parcours.','app-settings');return;}
+      if(!status.precise) {this.notify(session,'La position précise est nécessaire au départ. Autorisez-la dans la demande Android. Si elle est bloquée, rétablissez cette autorisation pour DriverMan.');return;}
       let permission=await this.notifications.checkPermissions();
       if(permission.display!=='granted'&&request)permission=await this.notifications.requestPermissions();
       if(this.session!==session)return;
-      if(permission.display!=='granted'){this.notify(session,'Autorisez les notifications pour afficher le suivi pendant la course.','app-settings');return;}
-      if(!status.background){this.notify(session,'Pour continuer écran verrouillé, choisissez Localisation → Toujours autoriser dans les réglages Android.','background');return;}
-      if(!status.locationEnabled){this.notify(session,'Activez la localisation du téléphone pour continuer.','location-settings');return;}
+      if(permission.display!=='granted'){this.notify(session,'Autorisez la notification de suivi de DriverMan pour démarrer la course.');return;}
+      // The foreground service starts while the departure form is visible and
+      // continues screen locked. It does not need ACCESS_BACKGROUND_LOCATION.
+      if(!status.locationEnabled&&request)status=await this.permissions.ensureLocationEnabled();
+      if(this.session!==session)return;
+      if(!status.locationEnabled){this.notify(session,'La localisation est désactivée. Acceptez son activation dans la demande Android pour démarrer.');return;}
       this.notify(session,'Recherche de votre position… Restez à l’extérieur si possible.','');
       session.timer=setTimeout(()=>{
         if(this.session!==session||session.consumer)return;
-        this.cancel().then(()=>this.onChange({message:'Aucune position assez précise reçue. Réessayez dans un endroit dégagé.',action:'retry',ready:false}));
+        const message='Aucune position assez précise reçue. Réessayez dans un endroit dégagé.';
+        this.lastError=message;this.notify(session,message);
+        this.cancel().then(()=>this.onChange({message,action:'retry',ready:false}));
       },this.timeoutMs);
       const id=await this.gps.addWatcher({backgroundTitle:'DriverMan · Suivi GPS',backgroundMessage:'Votre parcours est enregistré de la confirmation du départ jusqu’au retour.',requestPermissions:false,stale:false,distanceFilter:0},(location,error)=>{
         if(this.session!==session)return;
@@ -34,20 +52,20 @@ export class DepartureGps {
         if(error){session.location=null;this.notify(session,'La position est indisponible. Vérifiez le GPS et réessayez.','retry');return;}
         if(this.isUsable(location)){
           session.location={...location};clearTimeout(session.timer);
-          this.notify(session,`GPS prêt · précision ± ${Math.ceil(location.accuracy)} m. Le suivi restera actif jusqu’au retour.`,'retry');
+          this.notify(session,'GPS prêt. Démarrage de la course…','');
         }
       });
       if(this.session!==session)await this.gps.removeWatcher({id});
-      else session.id=id;
-    }catch(error){if(this.session===session){await this.cancel();this.onChange({message:'Le suivi GPS n’a pas pu démarrer. Vérifiez les autorisations et réessayez.',action:'retry',ready:false});}}
+      else {session.id=id;if(session.location)this.notify(session,'GPS prêt. Démarrage de la course…','');}
+    }catch(error){if(this.session===session){this.lastError='Le suivi GPS n’a pas pu démarrer. Vérifiez les autorisations et réessayez.';await this.cancel();this.onChange({message:this.lastError,action:'retry',ready:false});}}
     finally {if(this.session===session||!this.session)this.checking=false;}
   }
   async verify() {
     const session=this.session;
     const status=await this.permissions.status(),permission=await this.notifications.checkPermissions();
-    if(this.session!==session||!session?.id||!status.precise||!status.background||!status.locationEnabled||permission.display!=='granted'||!session.location||!this.isUsable(session.location)) {
+    if(this.session!==session||!session?.id||!status.precise||!status.locationEnabled||permission.display!=='granted'||!session.location||!this.isUsable(session.location)) {
       if(session)session.location=null;
-      throw new Error('Le GPS doit être prêt avant le départ. Touchez « Vérifier le GPS » pour continuer.');
+      throw new Error('Le GPS doit être prêt avant le départ. Réessayez de démarrer la course.');
     }
     return {...session.location};
   }
@@ -64,7 +82,7 @@ export class DepartureGps {
     const session=this.session;
     if(session?.transferred)return;
     this.session=null;
-    if(session){clearTimeout(session.timer);if(session.id)await this.gps.removeWatcher({id:session.id});}
+    if(session){session.reject?.(new Error('Préparation du GPS annulée.'));clearTimeout(session.timer);if(session.id)await this.gps.removeWatcher({id:session.id});}
   }
   release() {this.session=null;}
 }

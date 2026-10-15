@@ -1,14 +1,14 @@
 # Notifications des administrateurs
 
-Dans **Notifications**, chaque administrateur choisit séparément **Départ d’une course** et **Achat de carburant** : désactivé, son, vibreur, son et vibration, ou silencieux. Cliquer sur **Enregistrer mes choix**, puis sur **Activer sur cet appareil** et accepter la permission système. Répéter l’activation sur chaque téléphone ou navigateur souhaité.
+Les départs de course et les achats de carburant créent automatiquement une alerte pour chaque administrateur, dans la transaction métier. Les anciennes préférences « désactivé » ne les bloquent plus. La page **Notifications** contient l’historique et le marquage de lecture, sans formulaire de préférences ni bouton d’activation.
 
-Les alertes commencent après activation des événements. Les 50 dernières sont consultables pendant 90 jours. Les administrateurs ont des préférences et des états de lecture indépendants. Un chauffeur ne peut ni s’abonner ni consulter ces alertes. La déconnexion retire la réception pour la session concernée ; les préférences du compte restent enregistrées.
+La réception Android s’inscrit automatiquement après connexion administrateur et demande une seule fois l’autorisation système si nécessaire. Sur le web/PWA, une autorisation déjà accordée est réutilisée ; sinon la première interaction après connexion déclenche la demande du navigateur. Aucun refus n’est contourné. Les appareils inscrits après un événement ne reçoivent pas de notification rétroactive. Les 50 dernières alertes sont consultables pendant 90 jours ; la lecture reste propre à chaque compte et la déconnexion retire la réception de cette session.
 
 ## État de cette livraison
 
-- Écran web et Android, préférences, historique, événements transactionnels et file d’envoi implémentés et testés avec des données isolées.
+- Historique web et Android, inscription automatique, événements transactionnels et file d’envoi testés avec des données isolées.
 - Web Push standard configuré sur Hostinger pour les navigateurs compatibles et la PWA iPhone ; les clés VAPID restent dans le répertoire privé du serveur.
-- APK 1.8 (versionCode 9) compilé avec la configuration Firebase du projet `driverman-d5cbd` et quatre canaux Android. L’application doit être mise à jour, puis activée par chaque administrateur sur son appareil.
+- APK 1.12 (versionCode 13) compilé avec Firebase `driverman-d5cbd`. Le canal son et vibration est utilisé pour les alertes automatiques, dans les limites des réglages Android.
 - Le 14 octobre 2026, Hostinger a validé l’authentification du compte technique et une requête FCM HTTP v1 `validate_only`, sans envoi à un téléphone. Le worker a confirmé `web: true`, `android: true`, `firebase_validated: true` et une file sans erreur. Il s’exécute toutes les minutes.
 - Le fichier APK distribué ici est signé pour les essais, comme la version précédente. Prévoir une clé de signature de production conservée durablement avant une diffusion opérationnelle.
 - Aucun envoi sur un téléphone réel, en arrière-plan ou écran verrouillé, n’a encore été validé. La validation serveur ne remplace pas cet essai après installation et autorisation des notifications.
@@ -39,7 +39,7 @@ L’API FCM HTTP v1 est activée. Le compte `driverman-notifications@driverman-d
 3. Activer l’API **Firebase Cloud Messaging API (HTTP v1)** du projet. Créer un compte de service autorisé à envoyer des messages FCM (rôle Firebase Cloud Messaging API Admin), télécharger sa clé JSON et la conserver dans un emplacement privé hors du site. Ne jamais copier cette clé dans l’APK, les assets ou le dossier de téléchargement.
 4. Sur le serveur, exécuter `php scripts/configure-firebase.php /chemin/prive/compte-de-service.json`. Le script conserve les clés VAPID et enregistre uniquement les champs Firebase nécessaires dans le fichier privé `push.json`.
 5. Augmenter `versionCode` et `versionName` dans `mobile/android/app/build.gradle`, puis exécuter `npm --prefix mobile run sync`, compiler l’APK signé et `npm run publish:android`. Une compilation contenant `google-services.json` active automatiquement l’option de réception Android. Utiliser le **même projet Firebase** pour l’APK et le serveur.
-6. Installer la nouvelle version, se connecter comme administrateur et activer cet appareil dans **Notifications**. Autoriser les notifications sur Android. Les quatre canaux peuvent aussi être réglés dans les paramètres système de DriverMan.
+6. Installer la nouvelle version et se connecter comme administrateur. Accepter la demande système de notification ; l’inscription est automatique.
 
 Les messages FCM contiennent une notification visible : Android peut l’afficher lorsque la WebView est fermée, sans maintenir le GPS ni un service de surveillance actif pour l’administrateur. Les réglages système, le réseau, les restrictions du constructeur et un arrêt forcé peuvent empêcher la réception. Android 15 n’affiche pas les notifications d’un espace privé verrouillé.
 
@@ -59,16 +59,16 @@ Le fichier privé `status.json` et la sortie cron ne contiennent que les capacit
 
 ## iPhone et navigateur
 
-Sur iPhone, installer la PWA depuis Safari sur l’écran d’accueil (**iOS 16.4 ou ultérieur**), l’ouvrir, se connecter et cliquer sur **Activer sur cet appareil**. Ni Mac ni compte Apple Developer ne sont nécessaires pour Web Push. L’application doit être servie en HTTPS.
+Sur iPhone, installer la PWA depuis Safari sur l’écran d’accueil (**iOS 16.4 ou ultérieur**), l’ouvrir et se connecter. La première interaction dans l’application demande l’autorisation système. Une demande ignorée peut être relancée en touchant la cloche. Ni Mac ni compte Apple Developer ne sont nécessaires pour Web Push. HTTPS est obligatoire.
 
 Le système décide du son et de la vibration des notifications web. L’application transmet le mode silencieux et la demande de vibration quand ces options sont prises en charge ; elle ne peut pas garantir un son seul ou un vibreur seul sur tous les navigateurs et sur iPhone. Android natif utilise les canaux séparés pour ces modes. Aucun réglage de DriverMan ne contourne le mode Ne pas déranger.
 
 ## Validation avant mise en service
 
-- Activer les deux événements sur un administrateur, un seul sur un autre ; vérifier la séparation des choix.
+- Connecter deux administrateurs sans préférences : les deux doivent recevoir départs et achats ; vérifier la séparation de la lecture.
 - Depuis un compte chauffeur, enregistrer un départ puis un achat réels de test. Vérifier une alerte par enregistrement, le titre, le montant et la destination ouverte au toucher.
 - Tester application ouverte, fermée normalement, puis écran verrouillé sur un Android avec Google Play Services et sur une PWA iPhone installée.
-- Vérifier les quatre modes Android et les restrictions système, puis désactiver un événement et la réception sur l’appareil.
+- Vérifier le son et la vibration selon les réglages système ; refuser la permission puis vérifier que l’historique reste accessible sans demande répétée.
 - Se déconnecter et vérifier qu’un nouveau départ n’envoie plus d’alerte sur cet appareil. Une alerte déjà remise au fournisseur avant la déconnexion peut encore arriver.
 - Simuler une panne du fournisseur et vérifier une reprise par le worker. Aucune clé ou jeton ne doit être écrit dans les journaux.
 

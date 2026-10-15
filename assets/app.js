@@ -182,7 +182,7 @@ const pages = {
   fuel:{label:'Carburant',icon:'fuel',kicker:'LE SUIVI DE VOTRE CONSOMMATION',title:'Chaque litre compte.',description:'Enregistrez les ravitaillements et suivez les litres, les coûts et la consommation de chaque véhicule.'},
   reports:{label:'Rapports',icon:'activity',kicker:'LES CHIFFRES DE VOTRE ACTIVITÉ',title:'Votre activité, mois après mois.',description:'Courses, kilomètres et carburant : préparez vos bilans et exportez-les en PDF ou Excel.'},
   accounts:{label:'Comptes & accès',icon:'shield',kicker:'LES ACCÈS DE VOTRE ÉQUIPE',title:'À chacun son espace.',description:'Créez des comptes administrateurs et des accès personnels pour les chauffeurs.'},
-  notifications:{label:'Notifications',icon:'bell',kicker:'VOS ALERTES PERSONNELLES',title:'Restez au courant.',description:'Choisissez les événements à recevoir et la façon dont votre appareil vous avertit.'},
+  notifications:{label:'Notifications',icon:'bell',kicker:'VOS ALERTES',title:'Restez au courant.',description:'Retrouvez les départs de course et les achats de carburant du parc.'},
 };
 
 function isAdmin() { return state.data?.user.role === 'admin'; }
@@ -460,8 +460,8 @@ function openForm(type, id = 0) {
     content = `<input type="hidden" name="id" value="${id}"><div class="return-summary"><span>${icon('pin')} ${esc(m.destination)}</span><p>Départ le ${date(m.start_at,true)} · Compteur : <strong>${number(m.start_km)} km</strong></p></div>${inputField('Date et heure de retour','end_at',serverNow(),'datetime-local',`min="${m.start_at.replace(' ','T').slice(0,16)}"`)}${inputField('Kilométrage au retour','end_km','','number',`min="${m.start_km}" max="10000000" step="1" placeholder="Au moins ${m.start_km} km"`)}<p class="field-hint">${icon('check')} Le chauffeur et le véhicule redeviendront disponibles.</p>`;
   }
   if(action==='depart'&&window.DriverManMobile?.departure?.required()) {
-    content=`<div data-trip-details><p class="eyebrow">ÉTAPE 1 SUR 2 · LA COURSE</p>${content}</div>${window.DriverManMobile.departure.step()}`;
-    submit='Continuer : GPS';
+    content=`<div data-trip-details>${content}</div>${window.DriverManMobile.departure.step()}`;
+    submit='Démarrer la course';
   }
   openModal(title,subtitle,`<form id="record-form" method="post" data-action="${action}">${content}<p id="record-error" class="form-error" role="alert"></p><div class="modal-actions"><button type="button" class="btn btn-outline secondary" data-action="close">Annuler</button><button type="submit" class="btn btn-primary primary">${submit} ${icon('check')}</button></div></form>`);
 }
@@ -578,11 +578,6 @@ document.addEventListener('submit', async event => {
   const form = event.target;
   const auth = formId === 'auth-form';
   const errorBox = form.querySelector('.form-error');
-  if(form.dataset.action==='depart'&&window.DriverManMobile?.departure?.required()&&!form.dataset.gpsStep) {
-    errorBox.textContent='';
-    await window.DriverManMobile.departure.prepare(form);
-    return;
-  }
   const button = form.querySelector('[type="submit"]');
   const original = button.innerHTML;
   errorBox.textContent = '';
@@ -594,6 +589,12 @@ document.addEventListener('submit', async event => {
     if (form.dataset.action === 'save-refueling') data.full_tank ||= '0';
     if (multipart && !multipart.files.length) data.delete('photo');
     if (form.dataset.action === 'change-password' && data.new_password !== data.confirm_password) throw new Error('Les deux nouveaux mots de passe ne correspondent pas.');
+    if(form.dataset.action==='depart'&&window.DriverManMobile?.departure?.required()) {
+      button.textContent='Préparation du GPS…';
+      await window.DriverManMobile.departure.prepare(form);
+      if(!form.isConnected)return;
+      button.textContent='Démarrage…';
+    }
     await api(auth ? form.dataset.mode : form.dataset.action,data);
     if (auth) {await boot();toast('Bienvenue dans DriverMan TELESOL.');}
     else {modal.close();await loadData();toast(form.dataset.action === 'save-driver-access' ? (data.access === 'suspended' ? 'Le chauffeur est suspendu.' : 'Le chauffeur est réactivé.') : form.dataset.action === 'save-mobile-settings' ? 'Adresse HTTPS du serveur mobile enregistrée.' : form.dataset.action === 'save-refueling' ? 'Ravitaillement enregistré.' : form.dataset.action === 'delete-driver' ? 'Le chauffeur a été supprimé du parc.' : form.dataset.action === 'delete-vehicle' ? 'Le véhicule a été supprimé du parc.' : form.dataset.action === 'depart' ? 'Départ enregistré. Bonne route !' : form.dataset.action === 'return' ? 'Retour enregistré. Le parc est à jour.' : form.dataset.action === 'change-password' ? 'Votre mot de passe a été modifié.' : 'Les informations ont été enregistrées.');}
