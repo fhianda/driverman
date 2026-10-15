@@ -1,8 +1,8 @@
 {
-  "version": "1.12",
-  "versionCode": 13,
-  "file": "DriverMan-Android-1.12.apk",
-  "bytes": 15677853,
-  "sha256": "5497e4c4c825bc967e635388fefad138bc3be5a2a4de99396ecb01267d0de66d",
+  "version": "1.13",
+  "versionCode": 14,
+  "file": "DriverMan-Android-1.13.apk",
+  "bytes": 15652183,
+  "sha256": "06550bd572528ad4237252809f19ab0c508474abae33f618ba501ef087eb0580",
   "channel": "test"
 }

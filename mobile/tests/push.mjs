@@ -5,7 +5,8 @@ import {DepartureGps} from '../src/departure-gps.js';
 const source=(await readFile(new URL('../src/bridge.js',import.meta.url),'utf8')).replace(/^import .*;\r?\n/gm,'');
 const stored=new Map([['driverman-session',{server:'https://example.invalid/',userId:1,token:'fake-session'}]]);
 const listeners=new Map(),requests=[];let permission='prompt',unregistered=0,prompts=0;
-const window={addEventListener(){}};
+const opened=[];
+const window={addEventListener(){},DriverManNotifications:{open:(id,page)=>opened.push({id,page})}};
 const PushNotifications={
   addListener:async(name,callback)=>listeners.set(name,callback),checkPermissions:async()=>({receive:permission}),requestPermissions:async()=>{prompts++;permission='granted';return {receive:permission};},
   register:async()=>{await listeners.get('registration')({value:'fake-firebase-token'});},
@@ -15,7 +16,7 @@ const context=vm.createContext({__DRIVERMAN_PUSH_CONFIGURED__:true,Capacitor:{ge
   DepartureGps,LocalNotifications:{},
   registerPlugin:()=>({}),PushNotifications,SecureStorage:{setSynchronize:async()=>{},setDefaultKeychainAccess:async()=>{},get:async key=>structuredClone(stored.get(key)),set:async(k,v)=>stored.set(k,structuredClone(v)),remove:async k=>stored.delete(k)},KeychainAccess:{},
   CapacitorHttp:{request:async r=>{requests.push(r);return {status:200,data:{success:true}};}},App:{addListener(){}},
-  document:{querySelector:()=>null,addEventListener(){}},window,URL,URLSearchParams,FormData,Blob,ArrayBuffer,Uint8Array,btoa,Date,setTimeout,clearTimeout,console
+  document:{querySelector:()=>null,addEventListener(){}},loadData:async()=>{},window,URL,URLSearchParams,FormData,Blob,ArrayBuffer,Uint8Array,btoa,Date,setTimeout,clearTimeout,console
 });
 vm.runInContext(source,context);const mobile=window.DriverManMobile;await mobile.ready;
 assert.equal(mobile.notifications.configured,true);
@@ -30,6 +31,8 @@ assert.equal(new URL(requests[0].url).searchParams.get('action'),'subscribe-push
 assert.equal(requests[0].headers.Authorization,'Bearer fake-session');
 assert.equal(requests[0].data.kind,'android');assert.equal(requests[0].data.token,'fake-firebase-token');
 assert.equal(stored.get('driverman-push:https://example.invalid/|1'),true);
+listeners.get('pushNotificationActionPerformed')({notification:{data:{id:'42',page:'movements'}}});
+assert.deepEqual(opened,[{id:'42',page:'movements'}],'Un toucher Android transmet l’identifiant à la lecture persistée.');
 permission='denied';await assert.rejects(mobile.notifications.enable(),/autorisation Android/);
 assert.equal(await mobile.notifications.permission(),'denied');
 await mobile.notifications.disable();assert.equal(unregistered,1);assert.equal(stored.has('driverman-push:https://example.invalid/|1'),false);

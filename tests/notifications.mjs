@@ -55,6 +55,16 @@ try {
   ok((await driver.call('save-refueling',fuel)).status===409,'Doublon carburant refusé');
   status=await a.call('notifications');ok(status.items.length===2&&status.items[0].body.includes('20,00 USD'),'Deux alertes avec montant correct');
   const bStatus=await b.call('notifications');ok(bStatus.items.length===2&&bStatus.items[0].event==='fuel','Les deux événements arrivent chez chaque administrateur');
+  const ids=status.items.map(item=>item.id);
+  const readCsrf=a.csrf;a.csrf='incorrect';
+  ok((await a.call('read-notifications',{ids:[ids[0]]})).status===403,'Lecture protégée par CSRF');a.csrf=readCsrf;
+  for(const value of [[],[0],[-1],['1'],[1.5],Array(51).fill(1),{id:1}])ok((await a.call('read-notifications',{ids:value})).status===422,'Liste de lecture invalide refusée');
+  const single=await a.call('read-notifications',{ids:[ids[0],ids[0]]});
+  ok(single.status===200&&single.unread===1&&single.items.find(item=>item.id===ids[0]).read_at,'Ouvrir une alerte la marque lue et renvoie le compteur');
+  ok(!single.items.find(item=>item.id===ids[1]).read_at,'Une autre alerte non ouverte reste non lue');
+  ok((await a.call('read-notifications',{ids:[ids[0]]})).unread===1,'Ouvrir deux fois ne décrémente pas deux fois');
+  await a.call('read-notifications',{ids:bStatus.items.map(item=>item.id)});
+  ok((await b.call('notifications')).unread===2,'Impossible de lire les notifications d’un autre administrateur');
   await a.call('read-notifications',{through:status.items[0].id});ok((await a.call('notifications')).unread===0,'Lecture persistée');
   ok((await b.call('notifications')).unread===2,'Lecture ne modifie pas l’autre compte');
   const ecdh=createECDH('prime256v1');ecdh.generateKeys();
@@ -68,6 +78,7 @@ try {
   await a.call('subscribe-push',{kind:'web',subscription});
   ok((await a.call('subscribe-push',{kind:'android',token:'a'.repeat(30)})).status===503,'Android indisponible sans Firebase');
   await a.call('logout',{});await a.call('status');await a.call('login',{email:'a@example.invalid',password});await a.call('bootstrap');
+  ok((await a.call('notifications')).unread===0,'La lecture reste enregistrée après reconnexion');
   ok((await a.call('notifications')).devices.length===0,'Déconnexion supprime la réception');
   ok((await a.call('notifications')).preferences.fuel==='both','Alertes automatiques après reconnexion');
   // Queue, retries and cryptography exercised without contacting any real push provider.

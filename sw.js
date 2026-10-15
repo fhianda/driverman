@@ -19,7 +19,7 @@ self.addEventListener('push',event=>{
     let data;try{data=event.data?.json();}catch{}
     if(!data||!/^\d+$/.test(String(data.id)))return;
     const options={body:String(data.body||'').slice(0,500),icon:new URL('assets/pwa/icon-192.png',self.registration.scope).href,
-      tag:'driverman-'+data.id,data:{page:['fuel','movements'].includes(data.page)?data.page:'notifications'}};
+      tag:'driverman-'+data.id,data:{id:String(data.id),page:['fuel','movements'].includes(data.page)?data.page:'notifications'}};
     if(data.mode==='silent')options.silent=true;
     else if(['vibrate','both'].includes(data.mode))options.vibrate=[200,100,200];
     else options.vibrate=[];
@@ -29,7 +29,11 @@ self.addEventListener('push',event=>{
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
   const page=event.notification.data?.page;
-  const target=new URL('#'+(['fuel','movements'].includes(page)?page:'notifications'),self.registration.scope).href;
+  const targetUrl=new URL('#'+(['fuel','movements'].includes(page)?page:'notifications'),self.registration.scope);
+  // Older displayed notifications have only the stable tag, not data.id.
+  const id=event.notification.data?.id||String(event.notification.tag||'').replace(/^driverman-/,'');
+  if(/^[1-9]\d*$/.test(String(id))&&Number.isSafeInteger(Number(id)))targetUrl.searchParams.set('notification',String(id));
+  const target=targetUrl.href;
   event.waitUntil((async()=>{
     for(const client of await self.clients.matchAll({type:'window',includeUncontrolled:true})) {
       if(client.url.startsWith(self.registration.scope)) {await client.navigate(target);return client.focus();}

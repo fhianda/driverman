@@ -70,9 +70,22 @@ function notificationAction(PDO $db, string $action, array $input, bool $admin):
         fail('Les alertes de départ et de carburant sont désormais automatiques. Actualisez DriverMan.',409);
     }
     if ($action==='read-notifications') {
-        $through=integer($input,'through');
-        $db->prepare('UPDATE notifications SET read_at=? WHERE user_id=? AND id<=? AND read_at IS NULL')->execute([time(),$userId,$through]);
-        respond(['success'=>true]);
+        if (array_key_exists('ids',$input)) {
+            if (!is_array($input['ids']) || !array_is_list($input['ids']) || count($input['ids'])<1 || count($input['ids'])>50) fail('Liste de notifications incorrecte.');
+            $ids=[];
+            foreach ($input['ids'] as $id) {
+                if (!is_int($id) || $id<1) fail('Identifiant de notification incorrect.');
+                $ids[]=$id;
+            }
+            $ids=array_values(array_unique($ids));
+            $placeholders=implode(',',array_fill(0,count($ids),'?'));
+            $db->prepare("UPDATE notifications SET read_at=? WHERE user_id=? AND id IN ($placeholders) AND read_at IS NULL")->execute([time(),$userId,...$ids]);
+        } else {
+            // Compatibility with the existing "mark all read" control.
+            $through=integer($input,'through');
+            $db->prepare('UPDATE notifications SET read_at=? WHERE user_id=? AND id<=? AND read_at IS NULL')->execute([time(),$userId,$through]);
+        }
+        respond(['success'=>true]+notificationStatus($db));
     }
     if ($action==='subscribe-push') {
         if (!empty($_SESSION['demo_id'])) fail('Connectez-vous à votre compte pour activer les notifications sur cet appareil.');

@@ -2,6 +2,8 @@
 
 Les départs de course et les achats de carburant créent automatiquement une alerte pour chaque administrateur, dans la transaction métier. Les anciennes préférences « désactivé » ne les bloquent plus. La page **Notifications** contient l’historique et le marquage de lecture, sans formulaire de préférences ni bouton d’activation.
 
+Depuis la version 1.13, ouvrir la cloche marque les alertes affichées dans la liste comme lues. Toucher une alerte Android ou Web Push marque uniquement cette alerte comme lue et ouvre sa rubrique. La lecture est enregistrée côté serveur pour le compte connecté, conservée après actualisation et isolée des autres administrateurs. Le compteur ne diminue qu’après confirmation serveur ; un échec réseau est signalé. **Tout marquer comme lu** reste disponible pour les alertes plus anciennes que les 50 affichées.
+
 La réception Android s’inscrit automatiquement après connexion administrateur et demande une seule fois l’autorisation système si nécessaire. Sur le web/PWA, une autorisation déjà accordée est réutilisée ; sinon la première interaction après connexion déclenche la demande du navigateur. Aucun refus n’est contourné. Les appareils inscrits après un événement ne reçoivent pas de notification rétroactive. Les 50 dernières alertes sont consultables pendant 90 jours ; la lecture reste propre à chaque compte et la déconnexion retire la réception de cette session.
 
 ## État de cette livraison

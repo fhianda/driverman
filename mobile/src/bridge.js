@@ -35,7 +35,7 @@ async function preparePush() {
     await PushNotifications.addListener('pushNotificationActionPerformed',event=>{
       if(currentData?.user.role!=='admin')return;
       const page=event.notification.data?.page;
-      location.hash=['fuel','movements'].includes(page)?page:'notifications';
+      window.DriverManNotifications?.open(event.notification.data?.id,page);
       loadData().catch(()=>{});
     });
   })();
