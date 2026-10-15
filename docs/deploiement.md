@@ -14,7 +14,7 @@ Le dépôt est `https://github.com/fhianda/driverman`, branche `main`. L'adresse
 1. Dans l'hébergement, associer `driverman.trackkintrans.com` à son propre dossier public. Vérifier le dossier exact et son contenu avant tout transfert. Conserver une sauvegarde si un site existe déjà.
 2. Vérifier les enregistrements DNS du sous-domaine et activer le certificat HTTPS.
 3. Utiliser l'intégration Git du panneau, lorsqu'elle est disponible, ou SSH. Dans ce dernier cas, vérifier `git --version`, puis cloner le dépôt dans un dossier de préparation distinct et vide. Un dépôt privé nécessite un accès GitHub limité au dépôt concerné.
-4. Installer les dépendances PHP avec `composer install --no-dev --prefer-dist --optimize-autoloader` dans ce dossier. Les assets web compilés sont déjà suivis dans Git ; `node_modules/` n'est pas à déployer.
+4. Installer les dépendances PHP avec `composer install --no-dev --prefer-dist --optimize-autoloader` dans ce dossier. Les assets web compilés sont déjà suivis dans Git, y compris `assets/vendor/` pour la carte et les rapports PDF/Excel ; `node_modules/` n'est pas à déployer. Le dossier PHP `vendor/` à la racine reste généré par Composer et interdit par HTTP.
 5. Publier les fichiers PHP de la racine, `.htaccess`, `manifest.webmanifest`, `sw.js`, `offline.html`, et les dossiers `app/`, `assets/`, `downloads/`, `scripts/`, `vendor/`. Le dossier `scripts/` sert aux commandes CLI et doit rester interdit par HTTP, comme `app/` et `vendor/`. Ne pas publier `.git/`, `output/`, les tests, les sources mobiles ou les sauvegardes.
 
 ## Transférer les données
