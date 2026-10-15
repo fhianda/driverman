@@ -1,5 +1,16 @@
 .route-map {height:min(52vh,460px);min-height:260px;border-radius:10px;margin:16px 0;background:#dce3e8;color:#142338;}
 .route-map .leaflet-control-attribution {font-size:10px;}
+.movement-actions {display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:150px;}
+.movement-route {white-space:nowrap;min-height:44px;}
+.mission-actions {display:flex;flex-direction:column;gap:12px;}
+.route-refresh {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 16px;}
+.route-refresh p {margin:0;font-size:13px;}
+.departure-gps {border:1px solid var(--border,#596474);border-radius:12px;padding:20px;}
+.departure-gps h3 {font-size:22px;margin:8px 0 14px;}
+.departure-gps p {line-height:1.6;}
+.departure-gps-status {font-weight:600;margin:20px 0;}
+.departure-gps button {margin:8px 8px 0 0;min-height:44px;}
+#record-form [hidden] {display:none;}
 .route-source {display:grid;gap:8px;font-weight:700;}
 .route-source select {width:100%;max-width:100%;}
 .route-summary {display:flex;flex-wrap:wrap;gap:12px 24px;margin:16px 0;}

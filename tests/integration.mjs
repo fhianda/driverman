@@ -417,6 +417,54 @@ try {
   await selfSession.call('login',selfAccount);
   r=await selfSession.call('bootstrap');
   test('Courses et achats personnels persistent après reconnexion',r.result.movements.length===2 && r.result.refuelings.length===2 && r.result.refuelings.every(f=>f.created_by===r.result.user.id));
+  await client.call('save-driver',{...driver,id:selfDriver,name:'Chauffeur autonome',license:'SELF-001',status:'available'});
+  const gpsMobile=new Client();gpsMobile.token=(await gpsMobile.call('mobile-login',selfAccount)).result.token;
+  const gpsTrip={...selfTrip,start_at:localTime(0),start_km:1030};
+  test('Départ APK sans GPS refusé',(await gpsMobile.call('depart',gpsTrip)).status===422);
+  const initial={sample_id:randomUUID(),segment_id:randomUUID(),recorded_at:Date.now(),latitude:-4.325,longitude:15.322,accuracy:8};
+  for(const bad of [{...initial,accuracy:95},{...initial,recorded_at:Date.now()-120000},{...initial,latitude:100}]) {
+    test('Départ APK avec position invalide refusé',(await gpsMobile.call('depart',{...gpsTrip,initial_position:bad})).status===422);
+  }
+  test('Les refus GPS ne créent aucune course',(await gpsMobile.call('bootstrap')).result.movements.length===2);
+  const gpsDeparture=await gpsMobile.call('depart',{...gpsTrip,initial_position:initial});
+  test('Départ APK avec GPS validé',gpsDeparture.status===200&&Number.isInteger(gpsDeparture.result.movement_id));
+  const webRoute=await client.call('route&movement_id='+gpsDeparture.result.movement_id);
+  test('Le premier point du départ APK est immédiatement visible sur le web',webRoute.status===200&&webRoute.result.points.length===1&&webRoute.result.points[0].sample_id===initial.sample_id);
+  test('Une course refusée ne duplique pas le premier point',(await gpsMobile.call('depart',{...gpsTrip,initial_position:initial})).status===422&&(await client.call('route&movement_id='+gpsDeparture.result.movement_id)).result.points.length===1);
+  const resetInput={password:credentials.password,confirmation:'REINITIALISER'};
+  test('Préparation de remise à zéro interdite au chauffeur',(await gpsMobile.call('reset-preview',{})).status===403);
+  test('Remise à zéro interdite au chauffeur',(await gpsMobile.call('reset-workspace',resetInput)).status===403);
+  test('Remise à zéro protégée par CSRF',(await client.call('reset-workspace',resetInput,{csrf:'incorrect'})).status===403);
+  test('Remise à zéro interdite en démonstration',(await demo.call('reset-workspace',resetInput)).status===403);
+  test('Remise à zéro exige la confirmation exacte',(await client.call('reset-workspace',{...resetInput,confirmation:'oui'})).status===422);
+  test('Remise à zéro exige le mot de passe administrateur',(await client.call('reset-workspace',{...resetInput,password:'incorrect'})).status===422);
+  test('Remise à zéro refuse les courses encore actives',(await client.call('reset-workspace',resetInput)).status===422);
+  const beforeReset=(await client.call('bootstrap')).result;
+  for(const movement of beforeReset.movements.filter(m=>!m.end_at)) {
+    const response=await client.call('return',{id:movement.id,end_at:localTime(0),end_km:Math.max(movement.start_km,100000)});
+    assert.equal(response.status,200,response.result.error);
+  }
+  const preview=(await client.call('reset-preview',{})).result;
+  const photoHashes=()=>spawnSync(php,['-r',`require 'app/bootstrap.php'; echo json_encode(database(true)->query('SELECT resource_type,resource_id,SHA2(content,256) AS checksum FROM resource_photos ORDER BY resource_type,resource_id')->fetchAll());`],{cwd:root,env:testEnv,windowsHide:true}).stdout.toString();
+  const photosBefore=photoHashes();
+  test('Préparation affiche les données sans les effacer',preview.counts.drivers>0&&preview.counts.movements>0&&preview.counts.active===0);
+  const reset=await client.call('reset-workspace',resetInput);
+  test('Remise à zéro confirmée avec sauvegarde préalable',reset.status===200&&/^[a-f0-9]{32}$/.test(reset.result.backup_id));
+  const empty=(await client.call('bootstrap')).result;
+  test('Chauffeurs véhicules courses et achats sont vidés',!empty.drivers.length&&!empty.vehicles.length&&!empty.movements.length&&!empty.refuelings.length);
+  test('Tous les comptes administrateurs sont conservés',empty.accounts.length===preview.counts.admins&&empty.accounts.every(a=>a.role==='admin'));
+  test('La configuration du serveur reste disponible',empty.mobile_public_url===beforeReset.mobile_public_url);
+  test('Les jetons des chauffeurs supprimés sont révoqués',(await gpsMobile.call('bootstrap')).status===401);
+  test('Les sessions web des chauffeurs supprimés sont révoquées',(await selfSession.call('bootstrap')).status===401);
+  test('La dernière sauvegarde reste accessible après rechargement',(await client.call('reset-preview',{})).result.backup_id===reset.result.backup_id);
+  test('Le chemin de sauvegarde ne peut être détourné',(await client.call('reset-backup',{backup_id:'../../database.json'})).status===422);
+  const backup=await client.call('reset-backup',{backup_id:reset.result.backup_id});
+  test('La sauvegarde contient les tracés et photos sans jetons mobiles',backup.status===200&&backup.result.content.includes('INSERT INTO `movement_positions`')&&backup.result.content.includes('INSERT INTO `resource_photos`')&&!backup.result.content.includes('INSERT INTO `mobile_tokens`'));
+  const restored=spawnSync(php,['-r',`require 'app/bootstrap.php'; try {$db=database(true); foreach (explode("\\n",stream_get_contents(STDIN)) as $sql) {if ($sql!=='' && !str_starts_with($sql,'--')) $db->exec($sql);}} catch(Throwable $error) {fwrite(STDERR,$error->getMessage());exit(1);}`],{cwd:root,env:testEnv,windowsHide:true,input:backup.result.content});
+  assert.equal(restored.status,0,restored.stderr.toString()+restored.stdout.toString());
+  const afterRestore=(await client.call('reset-preview',{})).result.counts;
+  test('La sauvegarde SQL restaure toutes les données supprimées',JSON.stringify(afterRestore)===JSON.stringify(preview.counts));
+  test('Les photos binaires sont restaurées sans altération',photosBefore.startsWith('[')&&photosBefore!== '[]'&&photoHashes()===photosBefore);
   console.log(`\n${passed} vérifications réussies. Base temporaire isolée du parc Wamp.`);
 } catch(error) {
   console.error(logs); throw error;

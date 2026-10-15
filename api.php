@@ -6,6 +6,7 @@ require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/tracking.php';
 require __DIR__ . '/app/route-import.php';
 require __DIR__ . '/app/notifications.php';
+require __DIR__ . '/app/reset.php';
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store');
 
@@ -144,6 +145,7 @@ try {
         respond(['success' => true]);
     }
     if ($action === 'bootstrap') respond(snapshot($db));
+    if (in_array($action,['reset-preview','reset-backup','reset-workspace'],true)) resetAction($db,$action,$input,$admin);
     if (in_array($action,['notifications','save-notification-preferences','read-notifications','subscribe-push','unsubscribe-push'],true)) notificationAction($db,$action,$input,$admin);
     if ($action === 'route' || $action === 'save-positions') trackingAction($db, $action, $input, $admin);
     if ($action === 'preview-route' || $action === 'import-route') importRouteAction($db, $action, $input, $admin);
@@ -340,7 +342,8 @@ try {
         $notes = field($input, 'notes', 1000, false);
         if ($start > date('Y-m-d H:i:s', time()+60)) fail('Le départ ne peut pas être dans le futur.');
         if ($expected !== '' && $expected <= $start) fail('Le retour prévu doit être après le départ.');
-        transaction($db, function () use ($db, $driverId, $vehicleId, $start, $expected, $km, $destination, $purpose, $notes) {
+        $initialPosition=$native&&!$admin ? departurePosition($input,$start) : null;
+        $movementId=transaction($db, function () use ($db, $driverId, $vehicleId, $start, $expected, $km, $destination, $purpose, $notes, $initialPosition) {
             $driver = row($db, 'drivers', $driverId);
             $vehicle = row($db, 'vehicles', $vehicleId);
             if ($driver['status'] !== 'available' || activeFor($db, 'driver_id', $driverId)) throw new DomainException('Ce chauffeur est déjà en mission ou indisponible.');
@@ -354,11 +357,17 @@ try {
             $stmt->execute([$driverId, $vehicleId]);
             if (($lastReturn = $stmt->fetchColumn()) && $start < $lastReturn) throw new DomainException('Le départ doit être après le dernier retour de ce chauffeur et de ce véhicule.');
             $db->prepare('INSERT INTO movements(driver_id,vehicle_id,destination,purpose,start_at,expected_return,start_km,notes) VALUES(?,?,?,?,?,?,?,?)')->execute([$driverId,$vehicleId,$destination,$purpose,$start,$expected,$km,$notes]);
-            recordNotification($db,'departure',(int)$db->lastInsertId(),'Départ d’une course',$driver['name'].' · '.$vehicle['plate'].' → '.$destination);
+            $id=(int)$db->lastInsertId();
+            if ($initialPosition!==null) {
+                $db->prepare('INSERT INTO movement_positions(movement_id,sample_id,segment_id,recorded_at,latitude,longitude,accuracy,created_by) VALUES(?,?,?,?,?,?,?,?)')
+                    ->execute([$id,...$initialPosition,$_SESSION['user']['id']]);
+            }
+            recordNotification($db,'departure',$id,'Départ d’une course',$driver['name'].' · '.$vehicle['plate'].' → '.$destination);
             $db->prepare('UPDATE vehicles SET mileage=? WHERE id=?')->execute([$km,$vehicleId]);
+            return $id;
         });
         dispatchPushAfterResponse($db);
-        respond(['success' => true]);
+        respond(['success' => true, 'movement_id'=>$movementId]);
     }
 
     if ($action === 'return') {

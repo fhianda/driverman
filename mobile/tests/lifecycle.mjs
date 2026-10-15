@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {PositionQueue} from '../src/queue.js';
+import {DepartureGps} from '../src/departure-gps.js';
 const stored=new Map([
   ['driverman-session',{server:'https://driver.example.invalid/',token:'test',userId:7}],
   ['driverman-gps:https://driver.example.invalid/|7',true],
@@ -11,7 +12,7 @@ const secure={get:async key=>structuredClone(stored.get(key)),set:async(key,valu
 const gps={addWatcher:async(opts,callback)=>{assert.ok(opts.backgroundMessage);assert.equal(opts.distanceFilter,0,'La collecte ne dépend pas du déplacement du véhicule.');const id=String(++serial);watches.set(id,callback);return id;},removeWatcher:async({id})=>{watches.delete(id);}};
 const window={addEventListener(){}};
 const context=vm.createContext({
-  Capacitor:{isNativePlatform:()=>true,getPlatform:()=> 'android'},registerPlugin:()=>gps,SecureStorage:secure,KeychainAccess:{},PositionQueue,
+  Capacitor:{isNativePlatform:()=>true,getPlatform:()=> 'android'},registerPlugin:name=>name==='TripGps'?{status:async()=>({precise:true,background:true,locationEnabled:true})}:gps,SecureStorage:secure,KeychainAccess:{},PositionQueue,DepartureGps,
   CapacitorHttp:{request:async request=>{
     requests.push(request);
     const action=new URL(request.url).searchParams.get('action');
@@ -19,9 +20,10 @@ const context=vm.createContext({
     if(action==='save-positions'){saved.push(...request.data.points);return{status:200,data:{accepted:request.data.points.map(p=>p.sample_id)}};}
     if(action==='return'){returned++;return{status:200,data:{success:true}};}
     if(action==='save-vehicle')return{status:200,data:{success:true}};
+    if(action==='depart')return{status:200,data:{success:true,movement_id:45}};
     throw Error(`Unexpected action: ${action}`);
   }},
-  App:{addListener(){}},LocalNotifications:{},Filesystem:{writeFile:async file=>{shared.push(file);return{uri:'file:///cache/'+file.path};}},Directory:{Cache:'CACHE'},Encoding:{UTF8:'utf8'},Share:{share:async file=>shared.push(file)},
+  App:{addListener(){}},LocalNotifications:{checkPermissions:async()=>({display:'granted'})},Filesystem:{writeFile:async file=>{shared.push(file);return{uri:'file:///cache/'+file.path};}},Directory:{Cache:'CACHE'},Encoding:{UTF8:'utf8'},Share:{share:async file=>shared.push(file)},
   document:{querySelector:()=>null,addEventListener(){}},window,crypto,URL,URLSearchParams,FormData,Blob,ArrayBuffer,Uint8Array,btoa,Date,console,
 });
 const source=(await readFile(new URL('../src/bridge.js',import.meta.url),'utf8')).replace(/^import .*;\r?\n/gm,'');
@@ -76,6 +78,21 @@ await mobile.saveFile('rapport.pdf',new Blob([new Uint8Array([37,80,68,70,0,255]
 assert.equal(shared.at(-2).data,'JVBERgD/');assert.equal(shared.at(-2).encoding,undefined,'Un PDF est transmis en binaire, sans encodage texte.');
 assert.equal(shared.at(-1).files[0],'file:///cache/rapport.pdf');
 await mobile.call('return',{id:12,end_at:'2026-10-08T21:00'});assert.equal(watches.size,0,'Un retour géré par admin ne lance pas le GPS.');
+await mobile.onData({...data,movements:[]});
+const requestsBefore=requests.length;
+await assert.rejects(mobile.call('depart',{vehicle_id:1}),/GPS doit être prêt/);
+assert.equal(requests.length,requestsBefore,'Aucun départ réseau sans étape GPS validée.');
+await vm.runInContext('departureGps.begin()',context);
+assert.equal(watches.size,1);
+const preparedWatch=watches.keys().next().value;
+await watches.get(preparedWatch)({latitude:-4.325,longitude:15.322,accuracy:8,time:Date.now()});
+await mobile.call('depart',{vehicle_id:1,start_at:'2026-10-15T10:00',start_km:100});
+assert.equal(watches.has(preparedWatch),true,'Le même service GPS continue sans coupure au départ.');
+const departure=requests.findLast(r=>new URL(r.url).searchParams.get('action')==='depart');
+assert.equal(departure.data.initial_position.latitude,-4.325,'Le premier point est envoyé avec la création.');
+assert.equal(vm.runInContext('activeId',context),45,'Le suivi est lié à la course renvoyée par le serveur.');
+await mobile.call('return',{id:45,end_at:'2026-10-15T11:00'});
+assert.equal(watches.size,0,'Le retour termine aussi le service transmis par l’étape GPS.');
 stored.clear();
 const freshWindow={addEventListener(){}};
 const freshContext=vm.createContext({...context,window:freshWindow});

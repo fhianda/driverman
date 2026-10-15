@@ -6,8 +6,8 @@
   "scripts": {
     "build": "node build.mjs",
     "sync": "npm run build && cap sync",
-    "check": "node --check src/bridge.js && node --check src/queue.js",
-    "test": "node tests/queue.mjs && node tests/sampling.mjs && node tests/lifecycle.mjs && node tests/push.mjs"
+    "check": "node --check src/bridge.js && node --check src/queue.js && node --check src/departure-gps.js",
+    "test": "node tests/queue.mjs && node tests/sampling.mjs && node tests/departure-gps.mjs && node tests/lifecycle.mjs && node tests/push.mjs"
   },
   "dependencies": {
     "@aparajita/capacitor-secure-storage": "7.1.6",

@@ -18,6 +18,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
+        registerPlugin(TripGpsPlugin.class);
         super.onCreate(savedInstanceState);
         if (Build.VERSION.SDK_INT >= 35 && getBridge() != null) {
             // Capacitor 7 protège les barres système mais ignore le clavier.

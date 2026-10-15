@@ -1,6 +1,24 @@
 <?php
 declare(strict_types=1);
 
+function departurePosition(array $input, string $start): array
+{
+    $point=$input['initial_position']??null;
+    if (!is_array($point)) fail('Activez le GPS dans la création de course. Installez la dernière version Android si cette étape est absente.');
+    $id=field($point,'sample_id',36); $segment=field($point,'segment_id',36);
+    if (!preg_match('/^[a-f0-9-]{36}$/D',$id) || !preg_match('/^[a-f0-9-]{36}$/D',$segment)) fail('Identifiant de position incorrect.');
+    $at=$point['recorded_at']??null;
+    $lat=$point['latitude']??null; $lon=$point['longitude']??null; $accuracy=$point['accuracy']??null;
+    $now=(int)floor(microtime(true)*1000);
+    if (!is_int($at) || $at<$now-60000 || $at>$now+60000 || $at<(new DateTimeImmutable($start))->getTimestamp()*1000
+        || !is_numeric($lat) || !is_numeric($lon) || !is_numeric($accuracy)
+        || !is_finite((float)$lat) || !is_finite((float)$lon) || !is_finite((float)$accuracy)
+        || abs((float)$lat)>90 || abs((float)$lon)>180 || $accuracy<=0 || $accuracy>50) {
+        fail('Une position GPS récente et précise est nécessaire avant le départ. Vérifiez le GPS et réessayez.');
+    }
+    return [$id,$segment,$at,(float)$lat,(float)$lon,(float)$accuracy];
+}
+
 function trackingAction(PDO $db, string $action, array $input, bool $admin): never
 {
     $movementId = integer($action === 'route' ? $_GET : $input, 'movement_id');

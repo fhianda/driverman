@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
+import {DepartureGps} from '../src/departure-gps.js';
 const source=(await readFile(new URL('../src/bridge.js',import.meta.url),'utf8')).replace(/^import .*;\r?\n/gm,'');
 const stored=new Map([['driverman-session',{server:'https://example.invalid/',userId:1,token:'fake-session'}]]);
 const listeners=new Map(),requests=[];let permission='granted',unregistered=0;
@@ -11,6 +12,7 @@ const PushNotifications={
   unregister:async()=>{unregistered++;},removeAllDeliveredNotifications:async()=>{}
 };
 const context=vm.createContext({__DRIVERMAN_PUSH_CONFIGURED__:true,Capacitor:{getPlatform:()=> 'android',isNativePlatform:()=>true},
+  DepartureGps,LocalNotifications:{},
   registerPlugin:()=>({}),PushNotifications,SecureStorage:{setSynchronize:async()=>{},setDefaultKeychainAccess:async()=>{},get:async key=>structuredClone(stored.get(key)),set:async(k,v)=>stored.set(k,structuredClone(v)),remove:async k=>stored.delete(k)},KeychainAccess:{},
   CapacitorHttp:{request:async r=>{requests.push(r);return {status:200,data:{success:true}};}},App:{addListener(){}},
   document:{querySelector:()=>null,addEventListener(){}},window,URL,URLSearchParams,FormData,Blob,ArrayBuffer,Uint8Array,btoa,Date,setTimeout,clearTimeout,console

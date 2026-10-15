@@ -6,6 +6,10 @@ Application en français de gestion des chauffeurs, véhicules et mouvements, co
 
 Pour la mise en ligne sur `driverman.trackkintrans.com` depuis GitHub, voir [le guide de déploiement](docs/deploiement.md).
 
+Pour repartir avec un parc vide : **Comptes & accès → Nouvelle utilisation → Préparer la remise à zéro**. Après le retour de toutes les courses en cours, l’administrateur saisit son mot de passe et `REINITIALISER`, puis confirme **Effacer et recommencer**. Seuls les comptes administrateurs, leurs réglages de notifications et la configuration du serveur restent en place. Chauffeurs, comptes chauffeurs, véhicules, photos, courses, achats, tracés et historique des notifications sont supprimés. Aucun identifiant technique n’est réutilisé, afin que les anciennes files GPS ne puissent pas se rattacher aux nouvelles courses.
+
+Une sauvegarde SQL complète des données supprimées est écrite avant l’effacement dans `DRIVERMAN_DATA_DIR/reset-backups`, hors du site public. Si sa création échoue, rien n’est supprimé. Elle est téléchargeable après l’opération et via **Télécharger la dernière sauvegarde** dans la même fenêtre. Conserver ce fichier en lieu sûr : il contient les données du parc et les empreintes de mots de passe des anciens chauffeurs. Pour restaurer, un administrateur de la base importe ce SQL dans un espace vide ayant le même schéma et les administrateurs d’origine ; ne pas l’importer par-dessus un nouveau parc déjà rempli. Les sessions et les envois push ne sont pas restaurés. Les tests d’intégration vérifient le cycle effacement/restauration, y compris les photos binaires.
+
 1. Démarrer Apache dans Wamp.
 2. Ouvrir **http://localhost/driverman/**.
 3. Se connecter avec un compte administrateur. Sur cette installation, les accès initiaux `admin@telesol.net` et `chauffeur@telesol.net` ont été créés à la demande du propriétaire. Leurs mots de passe distincts sont conservés dans **`C:\wamp64\driverman-data\acces-initiaux.txt`**, en dehors du dossier web et du code source.

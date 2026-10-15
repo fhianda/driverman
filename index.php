@@ -49,6 +49,7 @@ ob_start(static function (string $html): string {
   <script src="assets/report-export.js" defer></script>
   <script src="assets/report-ui.js" defer></script>
   <script src="assets/notifications.js" defer></script>
+  <script src="assets/reset.js" defer></script>
   <script src="assets/app.js" defer></script>
   <script src="assets/login-focus.js" defer></script>
   <script src="assets/alpine-csp.min.js" defer></script>

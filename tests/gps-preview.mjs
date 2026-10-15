@@ -1,14 +1,18 @@
 // Serveur de vérification isolé. Fermer avec Ctrl+C une fois la revue terminée.
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {mkdtemp,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
 const data=await mkdtemp(path.join(tmpdir(),'driverman-gps-preview-'));
 const versions=(await readdir('C:/wamp64/bin/php')).filter(v=>v.startsWith('php8.')).sort().reverse();
+const php=`C:/wamp64/bin/php/${versions[0]}/php.exe`;
+const environment={...process.env,DRIVERMAN_DATA_DIR:data};
+const init=spawnSync(php,['tests/mysql-fixture.php','init'],{env:environment,windowsHide:true});
+if(init.status!==0)throw Error('Impossible de préparer la base isolée.');
 const socket=net.createServer();await new Promise(resolve=>socket.listen(0,'127.0.0.1',resolve));const port=socket.address().port;await new Promise(resolve=>socket.close(resolve));
-const server=spawn(`C:/wamp64/bin/php/${versions[0]}/php.exe`,['-S',`127.0.0.1:${port}`,'-t',process.cwd()],{env:{...process.env,DRIVERMAN_DATA_DIR:data},windowsHide:true,stdio:'ignore'});
-process.on('SIGINT',()=>{server.kill();process.exit();});process.on('exit',()=>server.kill());
+const server=spawn(php,['-S',`127.0.0.1:${port}`,'-t',process.cwd()],{env:environment,windowsHide:true,stdio:'ignore'});
+process.on('SIGINT',()=>{server.kill();process.exit();});process.on('exit',()=>{server.kill();spawnSync(php,['tests/mysql-fixture.php','cleanup'],{env:environment,windowsHide:true});});
 const base=`http://127.0.0.1:${port}/`;
 let cookie='',csrf='';
 async function call(action,body) {
