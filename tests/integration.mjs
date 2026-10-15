@@ -140,6 +140,7 @@ try {
   test('Maintenance bloquée pendant un trajet',(await client.call('save-vehicle',{...vehicle,id:1,status:'maintenance'})).status===422);
   test('Chauffeur actif non désactivable',(await client.call('save-driver',{...driver,id:1,status:'offline'})).status===422);
   test('Suppression du chauffeur en mission refusée',(await client.call('delete-driver',{id:1})).status===422);
+  test('Suspension du chauffeur en mission refusée',(await client.call('save-driver-access',{id:1,access:'suspended'})).status===422);
   test('Suppression du véhicule en mission refusée',(await client.call('delete-vehicle',{id:1})).status===422);
   r = await client.call('bootstrap');
   test('Disponibilités synchronisées',r.result.vehicles[0].on_trip===1 && r.result.drivers.find(d=>d.id===1).on_trip===1);
@@ -418,6 +419,35 @@ try {
   r=await selfSession.call('bootstrap');
   test('Courses et achats personnels persistent après reconnexion',r.result.movements.length===2 && r.result.refuelings.length===2 && r.result.refuelings.every(f=>f.created_by===r.result.user.id));
   await client.call('save-driver',{...driver,id:selfDriver,name:'Chauffeur autonome',license:'SELF-001',status:'available'});
+  const idleSession=new Client();await idleSession.call('status');await idleSession.call('login',selfAccount);
+  const suspendedMobile=new Client();suspendedMobile.token=(await suspendedMobile.call('mobile-login',selfAccount)).result.token;
+  const accessAdmin=new Client();accessAdmin.token=(await accessAdmin.call('mobile-login',credentials)).result.token;
+  test('Suspension interdite au chauffeur',(await selfSession.call('save-driver-access',{id:selfDriver,access:'suspended'})).status===403);
+  test('Suspension protégée par CSRF',(await client.call('save-driver-access',{id:selfDriver,access:'suspended'},{csrf:'invalid'})).status===403);
+  test('Suspension par GET refusée',(await client.call('save-driver-access')).status===405);
+  test('Valeur de suspension incorrecte refusée',(await client.call('save-driver-access',{id:selfDriver,access:'other'})).status===422);
+  test('Fiche supprimée non réactivable',(await client.call('save-driver-access',{id:1,access:'active'})).status===422);
+  const beforeSuspension=(await client.call('bootstrap')).result;
+  test('Suspension du chauffeur par l’administrateur',(await client.call('save-driver-access',{id:selfDriver,access:'suspended'})).status===200);
+  const suspended=(await client.call('bootstrap')).result;
+  test('Suspension visible sans perte de courses ni achats',suspended.drivers.find(d=>d.id===selfDriver).suspended && suspended.movements.length===beforeSuspension.movements.length && suspended.refuelings.length===beforeSuspension.refuelings.length);
+  test('Session web du chauffeur suspendu révoquée',(await selfSession.call('bootstrap')).status===401);
+  test('Jeton Android du chauffeur suspendu révoqué',(await suspendedMobile.call('bootstrap')).status===401);
+  test('Départ administrateur avec chauffeur suspendu refusé',(await client.call('depart',{...selfTrip,driver_id:selfDriver,start_at:localTime(0),start_km:1030})).status===422);
+  await selfSession.call('status');
+  test('Connexion web suspendue refusée',(await selfSession.call('login',selfAccount)).status===401);
+  test('Connexion Android suspendue refusée',(await new Client().call('mobile-login',selfAccount)).status===401);
+  await client.call('save-driver',{...driver,id:selfDriver,name:'Chauffeur autonome',license:'SELF-001',status:'offline'});
+  test('Modifier la fiche ne lève pas la suspension',(await client.call('bootstrap')).result.drivers.find(d=>d.id===selfDriver).suspended);
+  test('Réactivation par l’administrateur',(await client.call('save-driver-access',{id:selfDriver,access:'active'})).status===200);
+  const resumedDriver=(await client.call('bootstrap')).result.drivers.find(d=>d.id===selfDriver);
+  test('Réactivation conserve la disponibilité précédente',!resumedDriver.suspended&&resumedDriver.status==='offline');
+  test('Ancienne session restée hors ligne toujours révoquée après réactivation',(await idleSession.call('bootstrap')).status===401);
+  test('Ancien jeton Android toujours révoqué après réactivation',(await suspendedMobile.call('bootstrap')).status===401);
+  test('Reconnexion autorisée après réactivation',(await selfSession.call('login',selfAccount)).status===200);
+  test('Sessions déjà révoquées signalées déconnectées',(await idleSession.call('status')).result.authenticated===false);
+  test('Les administrateurs restent connectés',(await accessAdmin.call('bootstrap')).status===200);
+  await client.call('save-driver',{...driver,id:selfDriver,name:'Chauffeur autonome',license:'SELF-001',status:'available'});
   const gpsMobile=new Client();gpsMobile.token=(await gpsMobile.call('mobile-login',selfAccount)).result.token;
   const gpsTrip={...selfTrip,start_at:localTime(0),start_km:1030};
   test('Départ APK sans GPS refusé',(await gpsMobile.call('depart',gpsTrip)).status===422);
@@ -445,6 +475,7 @@ try {
     assert.equal(response.status,200,response.result.error);
   }
   const preview=(await client.call('reset-preview',{})).result;
+  await client.call('save-driver-access',{id:selfDriver,access:'suspended'});
   const photoHashes=()=>spawnSync(php,['-r',`require 'app/bootstrap.php'; echo json_encode(database(true)->query('SELECT resource_type,resource_id,SHA2(content,256) AS checksum FROM resource_photos ORDER BY resource_type,resource_id')->fetchAll());`],{cwd:root,env:testEnv,windowsHide:true}).stdout.toString();
   const photosBefore=photoHashes();
   test('Préparation affiche les données sans les effacer',preview.counts.drivers>0&&preview.counts.movements>0&&preview.counts.active===0);
@@ -465,6 +496,7 @@ try {
   const afterRestore=(await client.call('reset-preview',{})).result.counts;
   test('La sauvegarde SQL restaure toutes les données supprimées',JSON.stringify(afterRestore)===JSON.stringify(preview.counts));
   test('Les photos binaires sont restaurées sans altération',photosBefore.startsWith('[')&&photosBefore!== '[]'&&photoHashes()===photosBefore);
+  test('La sauvegarde conserve aussi les suspensions',(await client.call('bootstrap')).result.drivers.find(d=>d.id===selfDriver).suspended);
   console.log(`\n${passed} vérifications réussies. Base temporaire isolée du parc Wamp.`);
 } catch(error) {
   console.error(logs); throw error;

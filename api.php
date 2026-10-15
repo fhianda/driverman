@@ -24,7 +24,9 @@ try {
             $statement->execute([$tokenHash,time()]);
             $account = $statement->fetch();
             if (!$account) fail('Votre connexion mobile a expiré. Reconnectez-vous.', 401);
+            checkDriverAccess(database(true), $account, true);
             $_SESSION['user'] = $account;
+            $_SESSION['mobile_token_hash'] = $tokenHash;
             $native = true;
         }
     }
@@ -39,6 +41,10 @@ try {
 
     if ($action === 'status') {
         $db = database(true);
+        if (!empty($_SESSION['user']) && empty($_SESSION['demo_id'])) {
+            try { checkDriverAccess($db, $_SESSION['user'], $native); }
+            catch (DomainException $error) { unset($_SESSION['user'], $_SESSION['driver_access_revision']); }
+        }
         respond(['authenticated' => !empty($_SESSION['user']), 'needsSetup' => !(bool)$db->query('SELECT COUNT(*) FROM users')->fetchColumn(), 'csrf' => $_SESSION['csrf']]);
     }
 
@@ -80,18 +86,27 @@ try {
             $db->prepare('INSERT INTO login_attempts(address,attempts,reset_at) VALUES(?,1,?) ON DUPLICATE KEY UPDATE attempts=CASE WHEN login_attempts.reset_at < ? THEN 1 ELSE login_attempts.attempts+1 END,reset_at=CASE WHEN login_attempts.reset_at < ? THEN VALUES(reset_at) ELSE login_attempts.reset_at END')->execute([$address, time()+900, time(), time()]);
             fail('Adresse e-mail ou mot de passe incorrect.', 401);
         }
-        $db->prepare('DELETE FROM login_attempts WHERE address=?')->execute([$address]);
-        if ($action === 'mobile-login') {
-            if (!in_array($user['role'], ['admin','driver'], true)) fail('Ce compte ne peut pas accéder à l’application mobile.', 403);
-            $token = bin2hex(random_bytes(32));
-            $db->prepare('DELETE FROM mobile_tokens WHERE expires_at<=?')->execute([time()]);
-            $db->prepare('INSERT INTO mobile_tokens(token_hash,user_id,expires_at) VALUES(?,?,?)')->execute([hash('sha256',$token),$user['id'],time()+30*86400]);
-            respond(['success'=>true,'token'=>$token,'user_id'=>$user['id']]);
-        }
+        // Sérialiser l'ouverture d'une session avec une suspension/réactivation.
+        $credentials = transaction($db, function () use ($db, $user, $action, $address) {
+            $access = $user['role'] === 'driver' ? driverAccess($db, (int)$user['driver_id']) : ['suspended'=>false,'revision'=>''];
+            if ($access['suspended']) throw new DomainException('Votre accès a été suspendu. Contactez votre administrateur.', 401);
+            // La fiche peut avoir été retirée après la vérification du mot de passe.
+            if ($user['role'] === 'driver') row($db, 'drivers', (int)$user['driver_id']);
+            $db->prepare('DELETE FROM login_attempts WHERE address=?')->execute([$address]);
+            if ($action === 'mobile-login') {
+                $token = bin2hex(random_bytes(32));
+                $db->prepare('DELETE FROM mobile_tokens WHERE expires_at<=?')->execute([time()]);
+                $db->prepare('INSERT INTO mobile_tokens(token_hash,user_id,expires_at) VALUES(?,?,?)')->execute([hash('sha256',$token),$user['id'],time()+30*86400]);
+                return ['token'=>$token];
+            }
+            return ['revision'=>$access['revision']];
+        });
+        if ($action === 'mobile-login') respond(['success'=>true,'token'=>$credentials['token'],'user_id'=>$user['id']]);
         regenerateSession();
         unset($_SESSION['demo_id']);
         unset($user['password']);
         $_SESSION['user'] = $user;
+        $_SESSION['driver_access_revision'] = $credentials['revision'];
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
         respond(['success' => true]);
     }
@@ -114,12 +129,15 @@ try {
         $statement->execute([$_SESSION['user']['id']]);
         $account = $statement->fetch();
         if (!$account) { unset($_SESSION['user']); fail('Ce compte n’est plus disponible.', 401); }
+        try { checkDriverAccess($db, $account, $native); }
+        catch (DomainException $error) { unset($_SESSION['user'], $_SESSION['driver_access_revision']); throw $error; }
         $_SESSION['user'] = $account;
     } else {
         $_SESSION['user']['role'] ??= 'admin';
         $_SESSION['user']['driver_id'] ??= null;
     }
     $admin = $_SESSION['user']['role'] === 'admin';
+    define('DRIVERMAN_AUTHORIZED_REQUEST', true);
     if ($action === 'demo-view') {
         if (empty($_SESSION['demo_id'])) fail('Cette action est réservée à la démonstration.', 403);
         $role = choice($input, 'role', ['admin','driver']);
@@ -130,7 +148,7 @@ try {
             : ['id'=>-1,'name'=>$driver['name'],'email'=>'Espace de démonstration','role'=>'driver','driver_id'=>$driver['id']];
         respond(['success' => true]);
     }
-    if (in_array($action, ['save-driver','save-vehicle','delete-driver','delete-vehicle','create-user','save-mobile-settings'], true) && !$admin) {
+    if (in_array($action, ['save-driver','save-driver-access','save-vehicle','delete-driver','delete-vehicle','create-user','save-mobile-settings'], true) && !$admin) {
         fail('Cette action est réservée aux administrateurs.', 403);
     }
     if ($action === 'logout') {
@@ -221,6 +239,7 @@ try {
         transaction($db, function () use ($db, $role, $email, $password, $driverId, $name) {
             if ($driverId !== null) {
                 $driver = row($db, 'drivers', $driverId);
+                if (driverAccess($db, $driverId)['suspended']) throw new DomainException('Réactivez ce chauffeur avant de créer son accès.');
                 $name = $driver['name'];
             }
             $db->prepare('INSERT INTO users(name,email,password,role,driver_id) VALUES(?,?,?,?,?)')->execute([$name,$email,password_hash($password,PASSWORD_DEFAULT),$role,$driverId]);
@@ -282,9 +301,25 @@ try {
                     : 'Enregistrez le retour de ce véhicule avant de le supprimer.');
             }
             $db->prepare("UPDATE $table SET deleted_at=? WHERE id=?")->execute([date('Y-m-d H:i:s'), $id]);
+            if ($type === 'driver') revokeDriverDevices($db, $id);
             $db->prepare('DELETE FROM resource_photos WHERE resource_type=? AND resource_id=?')->execute([$type, $id]);
         });
         respond(['success' => true]);
+    }
+
+    if ($action === 'save-driver-access') {
+        $id = integer($input, 'id');
+        $suspended = choice($input, 'access', ['suspended','active']) === 'suspended';
+        transaction($db, function () use ($db, $id, $suspended) {
+            row($db, 'drivers', $id);
+            $previous = driverAccess($db, $id);
+            if ($previous['suspended'] === $suspended) return;
+            if ($suspended && activeFor($db, 'driver_id', $id)) throw new DomainException('Enregistrez le retour de ce chauffeur avant de le suspendre.');
+            $access = ['suspended'=>$suspended,'revision'=>bin2hex(random_bytes(16)),'changed_at'=>date(DATE_ATOM)];
+            $db->prepare('INSERT INTO app_settings(name,value) VALUES(?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)')->execute(['driver_access:'.$id,json_encode($access,JSON_THROW_ON_ERROR)]);
+            revokeDriverDevices($db, $id);
+        });
+        respond(['success'=>true]);
     }
 
     if ($action === 'save-driver') {
@@ -346,6 +381,7 @@ try {
         $movementId=transaction($db, function () use ($db, $driverId, $vehicleId, $start, $expected, $km, $destination, $purpose, $notes, $initialPosition) {
             $driver = row($db, 'drivers', $driverId);
             $vehicle = row($db, 'vehicles', $vehicleId);
+            if (driverAccess($db, $driverId)['suspended']) throw new DomainException('Ce chauffeur est suspendu. Réactivez-le avant un départ.');
             if ($driver['status'] !== 'available' || activeFor($db, 'driver_id', $driverId)) throw new DomainException('Ce chauffeur est déjà en mission ou indisponible.');
             if ($driver['license_expiry'] < substr($start, 0, 10)) throw new DomainException('Le permis de ce chauffeur est expiré. Mettez sa fiche à jour.');
             if ($vehicle['status'] !== 'available' || activeFor($db, 'vehicle_id', $vehicleId)) throw new DomainException('Ce véhicule est déjà en déplacement ou en maintenance.');
@@ -416,7 +452,7 @@ try {
 } catch (JsonException $e) {
     fail('Données JSON incorrectes.', 400);
 } catch (DomainException $e) {
-    fail($e->getMessage(), $e->getCode() === 403 ? 403 : 422);
+    fail($e->getMessage(), in_array($e->getCode(), [401,403], true) ? $e->getCode() : 422);
 } catch (PDOException $e) {
     error_log('DriverMan database: ' . $e->getMessage());
     if (str_contains($e->getMessage(), 'users_email')) fail('Un compte utilise déjà cette adresse e-mail.', 409);

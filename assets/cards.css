@@ -63,6 +63,12 @@
 .card-actions {display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto;}
 .card-delete {color: #f0b3b3; border-color: #83545e; background: #452a323d;}
 .card-delete:hover {color: #ffe0e0; border-color: #d18791; background: #60343f;}
+.resource-card[data-status="suspended"] {--card-accent:#e8a7aa;--card-glow:#ae4e6022;}
+.badge.suspended {color:#ffd4d4;background:#622c3b;border:1px solid #9b6473;}
+.driver-profile .resource-footer {align-items:flex-start;}
+.driver-profile .card-actions {width:100%;margin-left:0;}
+.driver-profile .card-actions .card-edit {flex:1;min-height:44px;}
+.card-access-action {color:#f7d5a5;border-color:#94744a;}
 #modal .delete-explanation {color: #c2cad9; font-size: 13px; line-height: 1.8; margin-bottom: 16px;}
 #modal .delete-confirm {color: #fff; background: #a63848; border: 1px solid #cf6675;}
 #modal .delete-confirm:hover {background: #be4355;}

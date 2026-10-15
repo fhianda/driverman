@@ -223,10 +223,10 @@ function renderShell() {
 }
 
 function effectiveStatus(item) {
-  return Number(item.on_trip) ? 'on_trip' : item.status;
+  return item.suspended ? 'suspended' : Number(item.on_trip) ? 'on_trip' : item.status;
 }
 function badge(status) {
-  const labels = {available:'Disponible',maintenance:'Maintenance',offline:'Indisponible',on_trip:'En déplacement',active:'En cours',completed:'Terminé',late:'Retour attendu'};
+  const labels = {available:'Disponible',maintenance:'Maintenance',offline:'Indisponible',suspended:'Suspendu',on_trip:'En déplacement',active:'En cours',completed:'Terminé',late:'Retour attendu'};
   return `<span class="badge ${status}"><span></span>${labels[status] || esc(status)}</span>`;
 }
 function movementStatus(m) {
@@ -296,7 +296,7 @@ function movementTable(movements, compact = false) {
 function listing() {
   const configs = {
     accounts:{placeholder:'Rechercher un nom, une adresse e-mail…',filters:[['all','Tous les comptes'],['admin','Administrateurs'],['driver','Chauffeurs']]},
-    drivers:{placeholder:'Rechercher un chauffeur, un permis…', filters:[['all','Tous'],['available','Disponibles'],['on_trip','En déplacement'],['offline','Indisponibles'],['expiring','Permis à vérifier']]},
+    drivers:{placeholder:'Rechercher un chauffeur, un permis…', filters:[['all','Tous'],['available','Disponibles'],['on_trip','En déplacement'],['offline','Indisponibles'],['suspended','Suspendus'],['expiring','Permis à vérifier']]},
     vehicles:{placeholder:'Rechercher un véhicule, une plaque…',filters:[['all','Tous'],['available','Au parking'],['on_trip','En déplacement'],['maintenance','Maintenance']]},
     movements:{placeholder:'Rechercher un trajet, un chauffeur…',filters:[['all','Tous'],['active','En cours'],['completed','Terminés'],['late','Retours attendus']]},
   };
@@ -321,7 +321,7 @@ function renderResults() {
     const emptyVehicleList = noRecords && !isAdmin() && state.page === 'vehicles';
     html = emptyState(noRecords ? (emptyVehicleList ? 'Aucun véhicule dans le parc' : 'Votre espace est prêt') : 'Aucun résultat',noRecords ? (emptyVehicleList ? 'Les véhicules ajoutés par votre administrateur apparaîtront ici.' : isAdmin() ? 'Ajoutez votre premier enregistrement pour commencer.' : 'Créez votre première course avec un véhicule disponible.') : 'Essayez une autre recherche ou un autre filtre.',noRecords && (isAdmin() || state.page === 'movements') ? {drivers:'add-driver',vehicles:'add-vehicle',movements:'add-movement',accounts:'add-account'}[state.page] : null,'Ajouter');
   } else if (state.page === 'movements') html = movementTable(results);
-  else if (state.page === 'accounts') html = `<div class="table-scroll"><table class="table"><thead><tr><th>UTILISATEUR</th><th>ADRESSE E-MAIL</th><th>RÔLE</th><th>ACCÈS</th></tr></thead><tbody>${results.map(u => `<tr><td><div class="vehicle-cell"><span class="driver-avatar account-avatar">${esc(initials(u.name))}</span><strong>${esc(u.name)}${u.id===state.data.user.id ? ' <span class="muted">(vous)</span>' : ''}</strong></div></td><td>${esc(u.email)}</td><td><span class="badge ${u.role==='admin' ? 'active' : 'available'}">${icon(u.role==='admin' ? 'shield':'users')} ${u.role==='admin' ? 'Administrateur':'Chauffeur'}</span></td><td>${u.role==='admin' ? 'Gestion complète du parc' : 'Missions personnelles'}</td></tr>`).join('')}</tbody></table></div>`;
+  else if (state.page === 'accounts') html = `<div class="table-scroll"><table class="table"><thead><tr><th>UTILISATEUR</th><th>ADRESSE E-MAIL</th><th>RÔLE</th><th>ACCÈS</th><th>ACTIONS</th></tr></thead><tbody>${results.map(u => `<tr><td><div class="vehicle-cell"><span class="driver-avatar account-avatar">${esc(initials(u.name))}</span><strong>${esc(u.name)}${u.id===state.data.user.id ? ' <span class="muted">(vous)</span>' : ''}</strong></div></td><td>${esc(u.email)}</td><td><span class="badge ${u.role==='admin' ? 'active' : 'available'}">${icon(u.role==='admin' ? 'shield':'users')} ${u.role==='admin' ? 'Administrateur':'Chauffeur'}</span></td><td>${u.role==='admin' ? 'Gestion complète du parc' : state.data.drivers.find(d=>d.id===u.driver_id)?.suspended ? badge('suspended') : 'Missions personnelles'}</td><td>${u.role==='driver' ? `<div class="card-actions">${driverAccessButton(state.data.drivers.find(d=>d.id===u.driver_id))}${deleteButton('driver',u.driver_id,u.name)}</div>` : '—'}</td></tr>`).join('')}</tbody></table></div>`;
   else if (state.page === 'vehicles') html = `<div class="resource-grid vehicles-grid">${results.map(vehicleCard).join('')}</div>`;
   else html = `<div class="resource-grid drivers-grid">${results.map(driverCard).join('')}</div>`;
   document.querySelector('#listing-results').innerHTML = html;
@@ -343,7 +343,7 @@ function driverCard(driver) {
       <dl class="resource-facts"><div><dt>${icon('id')} N° de permis</dt><dd>${esc(driver.license || 'À renseigner')}</dd></div><div class="${expired ? 'fact-danger' : incomplete || expiring ? 'fact-warning' : ''}"><dt>${icon('calendar')} Validité</dt><dd>${driver.license_expiry ? date(driver.license_expiry) : 'À renseigner'}</dd></div></dl>
       <div class="resource-metrics"><div><strong>${trips.length}</strong><span>mission${trips.length === 1 ? '' : 's'}</span></div><div><strong>${number(distance)} <small>km</small></strong><span>parcourus</span></div></div>
       ${warning ? `<div class="card-alert ${expired ? 'is-danger' : ''}">${icon('id')} ${warning}</div>` : ''}
-    </div><footer class="resource-footer"><div class="card-access">${hasAccount ? `<span>${icon('shield')} Accès activé</span>` : `<button class="text-button" data-action="add-driver-account" data-id="${driver.id}">${icon('plus')} Créer un accès</button>`}</div><div class="card-actions"><button class="card-edit" data-action="edit-driver" data-id="${driver.id}" aria-label="Modifier ${esc(driver.name)}">${icon('edit')} ${incomplete ? 'Compléter' : 'Modifier'}</button>${deleteButton('driver', driver.id, driver.name)}</div></footer>
+    </div><footer class="resource-footer"><div class="card-access">${driver.suspended ? `<span>${icon('lock')} Accès suspendu</span>` : hasAccount ? `<span>${icon('shield')} Accès activé</span>` : `<button class="text-button" data-action="add-driver-account" data-id="${driver.id}">${icon('plus')} Créer un accès</button>`}</div><div class="card-actions"><button class="card-edit" data-action="edit-driver" data-id="${driver.id}" aria-label="Modifier ${esc(driver.name)}">${icon('edit')} ${incomplete ? 'Compléter' : 'Modifier'}</button>${driverAccessButton(driver)}${deleteButton('driver', driver.id, driver.name)}</div></footer>
   </article>`;
 }
 
@@ -365,6 +365,23 @@ function vehicleCard(vehicle) {
 
 function deleteButton(type, id, label) {
   return isAdmin() ? `<button type="button" class="card-edit card-delete" data-action="delete-${type}" data-id="${id}" aria-label="Supprimer ${esc(label)}">${icon('trash')} Supprimer</button>` : '';
+}
+
+function driverAccessButton(driver) {
+  if(!isAdmin()||!driver)return '';
+  const label=driver.suspended?'Réactiver':'Suspendre';
+  return `<button type="button" class="card-edit card-access-action" data-action="driver-access" data-id="${driver.id}" aria-label="${label} ${esc(driver.name)}">${icon(driver.suspended?'check':'lock')} ${label}</button>`;
+}
+
+function confirmDriverAccess(id) {
+  if(!isAdmin())return;
+  const driver=state.data.drivers.find(d=>d.id===id);if(!driver)return;
+  if(!driver.suspended&&Number(driver.on_trip)) {
+    openModal('Une mission est en cours',driver.name,'<p>Enregistrez le retour de ce chauffeur avant de suspendre son accès.</p><div class="modal-actions"><button type="button" class="btn secondary" data-action="close">Fermer</button></div>');return;
+  }
+  const label=driver.suspended?'Réactiver':'Suspendre';
+  const explanation=driver.suspended?'Le chauffeur pourra se reconnecter avec ses identifiants habituels. Sa disponibilité et la validité de son permis restent nécessaires pour partir.':'Le chauffeur ne pourra plus se connecter ni démarrer de course. Ses sessions web et Android seront révoquées. Sa fiche, ses courses et ses achats resteront conservés.';
+  openModal(`${label} ce chauffeur ?`,driver.name,`<form id="record-form" method="post" data-action="save-driver-access"><input type="hidden" name="id" value="${id}"><input type="hidden" name="access" value="${driver.suspended?'active':'suspended'}"><p class="delete-explanation">${explanation}</p><p class="form-error" role="alert"></p><div class="modal-actions"><button type="button" class="btn secondary" data-action="close" autofocus>Annuler</button><button type="submit" class="btn primary">${label} le chauffeur</button></div></form>`);
 }
 
 function confirmDelete(type, id) {
@@ -406,7 +423,7 @@ function openForm(type, id = 0) {
   if (type === 'account') {
     title = 'Créer un compte'; subtitle = 'Un accès adapté au rôle de chaque membre de l’équipe.';
     action = 'create-user'; submit = 'Créer le compte';
-    const available = d.drivers.filter(driver => !d.accounts.some(a => a.driver_id === driver.id));
+    const available = d.drivers.filter(driver => !driver.suspended && !d.accounts.some(a => a.driver_id === driver.id));
     content = `<div x-data="accountUi" data-initial-role="${id ? 'driver':'admin'}"><div class="field"><label for="field-role">Rôle du compte</label><select class="select select-bordered" id="field-role" name="role" x-model="role"><option value="admin">Administrateur</option><option value="driver">Chauffeur</option></select></div><div x-show="isAdmin">${inputField('Nom complet de l’administrateur','name','','text','maxlength="100" autocomplete="off" x-bind:disabled="isDriver"')}</div><div x-show="isDriver" x-cloak><div class="field"><label for="field-driver_id">Fiche chauffeur associée</label><select class="select select-bordered" id="field-driver_id" name="driver_id" x-bind:disabled="isAdmin" required><option value="">Sélectionner un chauffeur</option>${available.map(driver=>`<option value="${driver.id}" ${driver.id===id?'selected':''}>${esc(driver.name)}</option>`).join('')}</select></div>${available.length ? '<p class="field-hint account-hint">Chaque chauffeur dispose d’un seul compte personnel.</p>' : '<p class="field-hint account-hint">Ajoutez d’abord un chauffeur sans compte dans la rubrique Chauffeurs.</p>'}</div>${inputField('Adresse e-mail de connexion','email','','email','maxlength="150" autocomplete="off" placeholder="prenom@telesol.net"')}${inputField('Mot de passe initial','password','','password','minlength="10" maxlength="72" autocomplete="new-password" placeholder="10 caractères minimum"')}<p class="field-hint account-hint">Communiquez les identifiants directement à la personne concernée.</p><div class="permission-summary"><div x-show="isAdmin">${icon('shield')} <span>Gestion des véhicules, chauffeurs, mouvements et création de comptes.</span></div><div x-show="isDriver" x-cloak>${icon('users')} <span>Création de ses courses, achats de carburant et enregistrement de ses retours.</span></div></div></div>`;
   } else if (type === 'driver') {
     const driver = d.drivers.find(v => v.id === id) || {};
@@ -524,6 +541,7 @@ document.addEventListener('click', async event => {
   if (action === 'details') { showDetails(id); return; }
   if (action === 'add-refueling') {openRefueling(id);return;}
   if (action === 'locate-refueling') {await locateRefueling(button);return;}
+  if (action === 'driver-access') {confirmDriverAccess(id);return;}
   if (action === 'delete-driver' || action === 'delete-vehicle') {confirmDelete(action === 'delete-driver' ? 'driver' : 'vehicle',id);return;}
   if (action === 'add-driver' || action === 'edit-driver') {openForm('driver',id);return;}
   if (action === 'add-vehicle' || action === 'edit-vehicle') {openForm('vehicle',id);return;}
@@ -578,7 +596,7 @@ document.addEventListener('submit', async event => {
     if (form.dataset.action === 'change-password' && data.new_password !== data.confirm_password) throw new Error('Les deux nouveaux mots de passe ne correspondent pas.');
     await api(auth ? form.dataset.mode : form.dataset.action,data);
     if (auth) {await boot();toast('Bienvenue dans DriverMan TELESOL.');}
-    else {modal.close();await loadData();toast(form.dataset.action === 'save-mobile-settings' ? 'Adresse HTTPS du serveur mobile enregistrée.' : form.dataset.action === 'save-refueling' ? 'Ravitaillement enregistré.' : form.dataset.action === 'delete-driver' ? 'Le chauffeur a été supprimé du parc.' : form.dataset.action === 'delete-vehicle' ? 'Le véhicule a été supprimé du parc.' : form.dataset.action === 'depart' ? 'Départ enregistré. Bonne route !' : form.dataset.action === 'return' ? 'Retour enregistré. Le parc est à jour.' : form.dataset.action === 'change-password' ? 'Votre mot de passe a été modifié.' : 'Les informations ont été enregistrées.');}
+    else {modal.close();await loadData();toast(form.dataset.action === 'save-driver-access' ? (data.access === 'suspended' ? 'Le chauffeur est suspendu.' : 'Le chauffeur est réactivé.') : form.dataset.action === 'save-mobile-settings' ? 'Adresse HTTPS du serveur mobile enregistrée.' : form.dataset.action === 'save-refueling' ? 'Ravitaillement enregistré.' : form.dataset.action === 'delete-driver' ? 'Le chauffeur a été supprimé du parc.' : form.dataset.action === 'delete-vehicle' ? 'Le véhicule a été supprimé du parc.' : form.dataset.action === 'depart' ? 'Départ enregistré. Bonne route !' : form.dataset.action === 'return' ? 'Retour enregistré. Le parc est à jour.' : form.dataset.action === 'change-password' ? 'Votre mot de passe a été modifié.' : 'Les informations ont été enregistrées.');}
   } catch (error) {errorBox.textContent = error.message;errorBox.scrollIntoView({block:'nearest'});}
   finally {busy = false;button.disabled = false;button.innerHTML = original;}
 });

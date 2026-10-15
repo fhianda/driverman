@@ -111,12 +111,48 @@ function activeFor(PDO $db, string $column, int $id): bool
     return (bool)$statement->fetchColumn();
 }
 
+// Les règles d'accès sont des paramètres par chauffeur, indépendants de sa disponibilité.
+// La révision invalide aussi les sessions web restées hors ligne pendant une suspension.
+function driverAccess(PDO $db, int $id): array
+{
+    $statement = $db->prepare('SELECT value FROM app_settings WHERE name=?');
+    $statement->execute(['driver_access:'.$id]);
+    $value = $statement->fetchColumn();
+    return $value === false ? ['suspended'=>false,'revision'=>''] : json_decode($value, true, 16, JSON_THROW_ON_ERROR);
+}
+
+function checkDriverAccess(PDO $db, array $account, bool $native = false): void
+{
+    if ($account['role'] !== 'driver' || !empty($_SESSION['demo_id'])) return;
+    $driver = $db->prepare('SELECT 1 FROM drivers WHERE id=? AND deleted_at IS NULL');
+    $driver->execute([$account['driver_id']]);
+    if (!$driver->fetchColumn()) throw new DomainException('Ce compte n’est plus disponible.', 401);
+    $access = driverAccess($db, (int)$account['driver_id']);
+    if ($access['suspended']) throw new DomainException('Votre accès a été suspendu. Contactez votre administrateur.', 401);
+    if (!$native && ($access['revision'] ?? '') !== ($_SESSION['driver_access_revision'] ?? '')) {
+        throw new DomainException('Votre accès a changé. Veuillez vous reconnecter.', 401);
+    }
+    if ($native && !empty($_SESSION['mobile_token_hash'])) {
+        $token = $db->prepare('SELECT 1 FROM mobile_tokens WHERE token_hash=? AND user_id=? AND expires_at>?');
+        $token->execute([$_SESSION['mobile_token_hash'],$account['id'],time()]);
+        if (!$token->fetchColumn()) throw new DomainException('Votre connexion mobile a expiré. Reconnectez-vous.', 401);
+    }
+}
+
+function revokeDriverDevices(PDO $db, int $id): void
+{
+    foreach (['mobile_tokens','push_devices'] as $table) {
+        $db->prepare("DELETE FROM $table WHERE user_id IN (SELECT id FROM users WHERE role='driver' AND driver_id=?)")->execute([$id]);
+    }
+}
+
 function transaction(PDO $db, callable $fn): mixed
 {
     $db->beginTransaction();
     try {
         // Serialize business checks as SQLite previously did, now using an InnoDB row lock.
         $db->query('SELECT id FROM app_write_lock WHERE id=1 FOR UPDATE')->fetchColumn();
+        if (defined('DRIVERMAN_AUTHORIZED_REQUEST')) checkDriverAccess($db, $_SESSION['user'], defined('DRIVERMAN_NATIVE_REQUEST'));
         $result = $fn();
         $db->commit();
         return $result;
@@ -230,6 +266,12 @@ function snapshot(PDO $db): array
     $admin = ($_SESSION['user']['role'] ?? '') === 'admin';
     $driverId = (int)($_SESSION['user']['driver_id'] ?? 0);
     $drivers = $db->query("SELECT d.*, EXISTS(SELECT 1 FROM movements m WHERE m.driver_id=d.id AND m.end_at IS NULL) AS on_trip FROM drivers d WHERE d.deleted_at IS NULL" . ($admin ? '' : " AND d.id=$driverId") . ' ORDER BY name')->fetchAll();
+    $policies = $db->query("SELECT name,value FROM app_settings WHERE name LIKE 'driver_access:%'")->fetchAll(PDO::FETCH_KEY_PAIR);
+    foreach ($drivers as &$driver) {
+        $policy = $policies['driver_access:'.$driver['id']] ?? null;
+        $driver['suspended'] = $policy !== null && json_decode($policy,true,16,JSON_THROW_ON_ERROR)['suspended'];
+    }
+    unset($driver);
     $vehicles = $db->query("SELECT v.*, EXISTS(SELECT 1 FROM movements m WHERE m.vehicle_id=v.id AND m.end_at IS NULL) AS on_trip FROM vehicles v WHERE v.deleted_at IS NULL ORDER BY make, model, plate")->fetchAll();
     $movements = $db->query('SELECT m.*, d.name AS driver_name, v.plate, v.make, v.model FROM movements m JOIN drivers d ON d.id=m.driver_id JOIN vehicles v ON v.id=m.vehicle_id' . ($admin ? '' : " WHERE m.driver_id=$driverId") . ' ORDER BY m.start_at DESC,m.id DESC')->fetchAll();
     $accounts = $admin ? $db->query("SELECT u.id,u.name,u.email,u.role,u.driver_id,d.name AS driver_name FROM users u LEFT JOIN drivers d ON d.id=u.driver_id WHERE u.role='admin' OR (d.id IS NOT NULL AND d.deleted_at IS NULL) ORDER BY u.role,u.name")->fetchAll() : [];

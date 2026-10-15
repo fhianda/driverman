@@ -33,6 +33,10 @@ L’avatar en haut à droite ouvre le menu du compte : **Mon profil**, **Changer
 
 Chaque fiche chauffeur ou véhicule propose **Supprimer** aux administrateurs, avec confirmation. Une mission en cours bloque la suppression jusqu’au retour. Les fiches sont retirées du parc par suppression logique ; leurs mouvements et ravitaillements restent consultables. Le compte lié à un chauffeur supprimé perd immédiatement son accès, y compris dans ses sessions existantes. Les photos sont retirées. Les plaques, permis et adresses de compte restent réservés aux enregistrements conservés ; aucune restauration n’est proposée dans l’interface.
 
+Dans **Chauffeurs** et **Comptes & accès**, l’administrateur peut aussi **Suspendre** puis **Réactiver** un chauffeur. La suspension bloque la connexion web/Android et les nouveaux départs, tout en conservant sa fiche, son historique et sa disponibilité. Elle nécessite de terminer sa course en cours. La réactivation exige une nouvelle connexion, même pour une ancienne session restée hors ligne ; elle ne rend pas disponible un chauffeur marqué indisponible. La suppression est également accessible depuis son compte. Aucun de ces boutons ne cible les administrateurs.
+
+Les politiques d’accès sont stockées dans `app_settings` sous `driver_access:<id>`, avec une révision de session. Chaque suspension/réactivation révoque les jetons mobiles et les appareils push associés. Les écritures métier et les connexions sont sérialisées avec ces changements d’accès. Les politiques sont incluses dans la sauvegarde de remise à zéro, puis effacées avec les chauffeurs. Aucune migration de schéma n’est nécessaire.
+
 ## Carburant et indicateurs
 
 Les administrateurs enregistrent les ravitaillements depuis **Carburant** ou directement sur une carte véhicule. Les chauffeurs disposent de **Acheter du carburant** dans **Mon espace** et **Mon carburant**, pour un véhicule disponible ou celui de leur mission en cours, y compris avant leur première course. La saisie comprend : date et heure locales, compteur, litres, prix unitaire, devise **USD ou CDF**, plein complet ou partiel, station et observations. Les quantités et prix acceptent trois décimales ; le total de chaque ravitaillement est arrondi à deux décimales. Les montants des deux devises ne sont jamais additionnés ni convertis. Les véhicules électriques sont exclus de la saisie en litres.
@@ -80,6 +84,7 @@ La PWA permet de consulter les itinéraires reçus et de relever ponctuellement 
 | Action | Administrateur | Chauffeur |
 | --- | --- | --- |
 | Ajouter et modifier des chauffeurs | Oui | Non |
+| Suspendre, réactiver et supprimer des chauffeurs | Oui | Non |
 | Ajouter et modifier des véhicules | Oui | Non |
 | Créer d’autres comptes administrateurs | Oui | Non |
 | Créer les accès des chauffeurs | Oui | Non |

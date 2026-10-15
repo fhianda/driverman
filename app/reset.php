@@ -45,8 +45,8 @@ function resetBackup(PDO $db): string
     };
     try {
         $write("-- DriverMan : sauvegarde avant nouvelle utilisation, ".date(DATE_ATOM)."\n-- Restaurer uniquement dans un espace vide, avec les administrateurs d'origine conservés.\n-- Les sessions et les envois de notifications ne sont pas restaurés.\nSET NAMES utf8mb4;\nSTART TRANSACTION;\n");
-        foreach (RESET_TABLES as $table) {
-            $query=$db->query('SELECT * FROM '.$table.($table==='users'?" WHERE role='driver'":''));
+        foreach ([...RESET_TABLES,'app_settings'] as $table) {
+            $query=$db->query('SELECT * FROM '.$table.($table==='users'?" WHERE role='driver'":($table==='app_settings'?" WHERE name LIKE 'driver_access:%'":'')));
             while ($row=$query->fetch(PDO::FETCH_ASSOC)) {
                 // Invisible generated columns are excluded by SELECT * on MySQL/MariaDB.
                 unset($row['active_driver_id'],$row['active_vehicle_id']);
@@ -90,6 +90,7 @@ function resetAction(PDO $db, string $action, array $input, bool $admin): never
         foreach (['push_jobs','notifications','movement_positions','movement_routes','refuelings','movements','resource_photos'] as $table) $db->exec('DELETE FROM '.$table);
         foreach (['mobile_tokens','push_devices','notification_preferences'] as $table) $db->exec('DELETE FROM '.$table." WHERE user_id NOT IN (SELECT id FROM users WHERE role='admin')");
         $db->exec("DELETE FROM users WHERE role='driver'");
+        $db->exec("DELETE FROM app_settings WHERE name LIKE 'driver_access:%'");
         $db->exec('DELETE FROM drivers'); $db->exec('DELETE FROM vehicles');
         // Do not recycle IDs: old offline queues must never attach to a new course.
         $db->prepare('INSERT INTO app_settings(name,value) VALUES(?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)')->execute(['last_reset_backup',$id]);
